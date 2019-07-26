@@ -8,9 +8,6 @@ enum OpCode {
     Return,
 }
 
-/// Variable size buffer of opcodes
-type Chunk = [OpCode];
-
 /// A constant value
 enum Value {
     Float(f64)
@@ -25,27 +22,37 @@ impl fmt::Display for Value {
 }
 
 /// Constant pool
-type ValueArray = [Value];
+type ValueArray = Vec<Value>;
+
+/// Variable size buffer of opcodes
+struct Chunk {
+    code: Vec<OpCode>,
+    constants: ValueArray,
+}
 
 /// Prints out a disassembled instruction
-fn disassemble_instruction(offset: usize, instruction: &OpCode, constant_pool: &ValueArray) {
+fn disassemble_instruction(chunk: &Chunk, offset: usize) {
     print!("{:x} ", offset);
+    let instruction: &OpCode = &chunk.code[offset];
     match instruction {
-        OpCode::Constant(ptr) => println!("CONSTANT \t{} \t{}", ptr, constant_pool[*ptr]),
+        OpCode::Constant(ptr) => println!("CONSTANT \t{} \t{}", ptr, chunk.constants[*ptr]),
         OpCode::Return => println!("RETURN"),
     }
 }
 
 /// Prints out a disassembled chunk
-fn disassemble_chunk(chunk: &Chunk, name: &str, constant_pool: &ValueArray) {
+fn disassemble_chunk(chunk: &Chunk, name: &str) {
     println!("== {} ==", name);
-    for (i, instruction) in chunk.iter().enumerate() {
-        disassemble_instruction(i, instruction, constant_pool)
+    for i in 0..chunk.code.len() {
+        disassemble_instruction(chunk, i)
     }
 }
 
 fn main() {
-    let constant_pool: &ValueArray = &[Value::Float(1.2)];
-    let chunk: &Chunk = &[OpCode::Constant(0), OpCode::Return];
-    disassemble_chunk(chunk, "test chunk", constant_pool);
+    let constant_pool: ValueArray = vec![Value::Float(1.2)];
+    let chunk: Chunk = Chunk{
+        code: vec![OpCode::Constant(0), OpCode::Return],
+        constants: constant_pool,
+    };
+    disassemble_chunk(&chunk, "test chunk");
 }

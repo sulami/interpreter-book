@@ -17,6 +17,14 @@ impl std::fmt::Display for Value {
     }
 }
 
+impl std::fmt::Debug for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match self {
+            Value::Float(x) => write!(f, "{}", x),
+        }
+    }
+}
+
 type ValueArray = Vec<Value>;
 
 struct Chunk {
@@ -53,6 +61,7 @@ impl Chunk {
 struct VM<'a> {
     chunk: &'a Chunk,
     ip: usize,
+    stack: Vec<&'a Value>,
 }
 
 enum InterpretResult {
@@ -62,6 +71,12 @@ enum InterpretResult {
 }
 
 impl<'a> VM<'a> {
+    fn print_state(self) {
+        println!("== vm state ==");
+        println!("ip: {}", self.ip);
+        println!("stack: {:?}", self.stack);
+    }
+
     fn interpret(mut self, debug: bool) -> InterpretResult {
         loop {
             let instruction = &self.chunk.code[self.ip];
@@ -69,18 +84,24 @@ impl<'a> VM<'a> {
                 self.chunk.disassemble_instruction(self.ip);
             }
             match instruction {
-                OpCode:: Constant(ptr) => println!("{}", self.chunk.read_constant(*ptr)),
-                OpCode::Return => break InterpretResult::OK,
+                OpCode:: Constant(ptr) => {
+                    self.stack.push(self.chunk.read_constant(*ptr));
+                }
+                OpCode::Return => {
+                    self.print_state();
+                    break InterpretResult::OK
+                }
             }
             self.ip += 1;
         }
     }
 }
 
-fn init_vm(chunk: &Chunk) -> VM {
+fn init_vm<'a>(chunk: &'a Chunk) -> VM<'a> {
     VM{
         chunk: chunk,
         ip: 0,
+        stack: vec![],
     }
 }
 

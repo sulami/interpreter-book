@@ -30,24 +30,23 @@ impl Chunk {
         &self.constants[index]
     }
 
-    fn disassemble(&self, name: &str) {
-        println!("== {} ==", name);
+    fn disassemble(&self) {
         for i in 0..self.code.len() {
-            disassemble_instruction(self, i)
+            self.disassemble_instruction(i)
         }
     }
-}
 
-fn disassemble_instruction(chunk: &Chunk, offset: usize) {
-    let instruction: &OpCode = &chunk.code[offset];
-    if offset > 0 && &chunk.lines[offset] == &chunk.lines[offset-1] {
-        print!("{:04x} {:>5} ", offset, "|");
-    } else {
-        print!("{:04x} {:>5} ", offset, &chunk.lines[offset]);
-    };
-    match instruction {
-        OpCode::Constant(ptr) => println!("CONSTANT \t{} \t{}", ptr, chunk.read_constant(*ptr)),
-        OpCode::Return => println!("RETURN"),
+    fn disassemble_instruction(&self, index: usize) {
+        let instruction: &OpCode = &self.code[index];
+        if index > 0 && &self.lines[index] == &self.lines[index-1] {
+            print!("{:04x} {:>5} ", index, "|");
+        } else {
+            print!("{:04x} {:>5} ", index, &self.lines[index]);
+        };
+        match instruction {
+            OpCode::Constant(ptr) => println!("CONSTANT \t{} \t{}", ptr, self.read_constant(*ptr)),
+            OpCode::Return => println!("RETURN"),
+        }
     }
 }
 
@@ -63,12 +62,14 @@ enum InterpretResult {
 }
 
 impl<'a> VM<'a> {
-    fn interpret(mut self) -> InterpretResult {
+    fn interpret(mut self, debug: bool) -> InterpretResult {
         loop {
-            match self.chunk.code[self.ip] {
-                OpCode:: Constant(ptr) => {
-                    println!("{}", self.chunk.read_constant(ptr))
-                }
+            let instruction = &self.chunk.code[self.ip];
+            if debug {
+                self.chunk.disassemble_instruction(self.ip);
+            }
+            match instruction {
+                OpCode:: Constant(ptr) => println!("{}", self.chunk.read_constant(*ptr)),
                 OpCode::Return => break InterpretResult::OK,
             }
             self.ip += 1;
@@ -91,6 +92,6 @@ fn main() {
         lines: lines,
         constants: constant_pool,
     };
-    chunk.disassemble("test chunk");
-    init_vm(&chunk).interpret();
+    chunk.disassemble();
+    init_vm(&chunk).interpret(false);
 }

@@ -62,16 +62,24 @@ enum InterpretResult {
     // RuntimeError,
 }
 
-fn interpret(chunk: &Chunk) -> InterpretResult {
-    let mut vm = VM {chunk: chunk, ip: 0};
-    loop {
-        match vm.chunk.code[vm.ip] {
-            OpCode:: Constant(ptr) => {
-                println!("{}", vm.chunk.read_constant(ptr))
+impl<'a> VM<'a> {
+    fn interpret(mut self) -> InterpretResult {
+        loop {
+            match self.chunk.code[self.ip] {
+                OpCode:: Constant(ptr) => {
+                    println!("{}", self.chunk.read_constant(ptr))
+                }
+                OpCode::Return => break InterpretResult::OK,
             }
-            OpCode::Return => break InterpretResult::OK,
+            self.ip += 1;
         }
-        vm.ip += 1;
+    }
+}
+
+fn init_vm(chunk: &Chunk) -> VM {
+    VM{
+        chunk: chunk,
+        ip: 0,
     }
 }
 
@@ -84,5 +92,5 @@ fn main() {
         constants: constant_pool,
     };
     chunk.disassemble("test chunk");
-    interpret(&chunk);
+    init_vm(&chunk).interpret();
 }

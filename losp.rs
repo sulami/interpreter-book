@@ -1,3 +1,4 @@
+#[derive(Debug)]
 enum OpCode {
     /// Returns a single constant from the constant pool
     Constant(usize),
@@ -58,6 +59,13 @@ impl Chunk {
     }
 }
 
+impl std::fmt::Debug for Chunk {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(f, "code: {:?}\nconstants: {:?}\nlines: {:?}",
+               self.code, self.constants, self.lines)
+    }
+}
+
 struct VM<'a> {
     chunk: &'a Chunk,
     ip: usize,
@@ -75,6 +83,7 @@ impl<'a> VM<'a> {
         println!("== vm state ==");
         println!("ip: {}", self.ip);
         println!("stack: {:?}", self.stack);
+        println!("{:?}", self.chunk);
     }
 
     fn interpret(mut self, debug: bool) -> InterpretResult {

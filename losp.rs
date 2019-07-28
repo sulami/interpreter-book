@@ -51,6 +51,30 @@ fn disassemble_instruction(chunk: &Chunk, offset: usize) {
     }
 }
 
+struct VM<'a> {
+    chunk: &'a Chunk,
+    ip: usize,
+}
+
+enum InterpretResult {
+    OK,
+    // CompileError,
+    // RuntimeError,
+}
+
+fn interpret(chunk: &Chunk) -> InterpretResult {
+    let mut vm = VM {chunk: chunk, ip: 0};
+    loop {
+        match vm.chunk.code[vm.ip] {
+            OpCode:: Constant(ptr) => {
+                println!("{}", vm.chunk.read_constant(ptr))
+            }
+            OpCode::Return => break InterpretResult::OK,
+        }
+        vm.ip += 1;
+    }
+}
+
 fn main() {
     let lines = vec![123, 123];
     let constant_pool: ValueArray = vec![Value::Float(1.2)];
@@ -60,4 +84,5 @@ fn main() {
         constants: constant_pool,
     };
     chunk.disassemble("test chunk");
+    interpret(&chunk);
 }

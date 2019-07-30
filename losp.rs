@@ -79,6 +79,7 @@ enum InterpretResult {
 }
 
 impl<'a> VM<'a> {
+    #[allow(dead_code)]
     fn print_state(self) {
         println!("== vm state ==");
         println!("ip: {}", self.ip);
@@ -97,7 +98,11 @@ impl<'a> VM<'a> {
                     self.stack.push(self.chunk.read_constant(*ptr));
                 }
                 OpCode::Return => {
-                    self.print_state();
+                    match self.stack.pop() {
+                        Some(c) => println!("{}", c),
+                        None => ()
+                    }
+                    // self.print_state();
                     break InterpretResult::OK
                 }
             }

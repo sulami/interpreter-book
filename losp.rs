@@ -1,8 +1,7 @@
 #[derive(Debug)]
 enum OpCode {
-    /// Returns a single constant from the constant pool
     Constant(usize),
-    /// Noop
+    Negate(usize),
     Return,
 }
 
@@ -35,8 +34,10 @@ struct Chunk {
 }
 
 impl Chunk {
-    fn read_constant(&self, index: usize) -> &Value {
-        &self.constants[index]
+    fn read_constant(&self, index: usize) -> Value {
+        match self.constants[index] {
+            Value::Float(n) => Value::Float(n)
+        }
     }
 
     fn disassemble(&self) {
@@ -54,6 +55,7 @@ impl Chunk {
         };
         match instruction {
             OpCode::Constant(ptr) => println!("CONSTANT \t{} \t{}", ptr, self.read_constant(*ptr)),
+            OpCode::Negate(ptr) => println!("NEGATE \t{} \t{}", ptr, self.read_constant(*ptr)),
             OpCode::Return => println!("RETURN"),
         }
     }
@@ -66,10 +68,10 @@ impl std::fmt::Debug for Chunk {
     }
 }
 
-struct VM<'a> {
-    chunk: &'a Chunk,
+struct VM {
+    chunk: Chunk,
     ip: usize,
-    stack: Vec<&'a Value>,
+    stack: ValueArray,
 }
 
 enum InterpretResult {
@@ -78,7 +80,7 @@ enum InterpretResult {
     // RuntimeError,
 }
 
-impl<'a> VM<'a> {
+impl VM {
     #[allow(dead_code)]
     fn print_state(self) {
         println!("== vm state ==");
@@ -94,24 +96,31 @@ impl<'a> VM<'a> {
                 self.chunk.disassemble_instruction(self.ip);
             }
             match instruction {
-                OpCode:: Constant(ptr) => {
+                OpCode::Constant(ptr) => {
                     self.stack.push(self.chunk.read_constant(*ptr));
+                }
+                OpCode::Negate(ptr) => {
+                    match self.chunk.read_constant(*ptr) {
+                        Value::Float(n) => {
+                            let val: Value = Value::Float(-n);
+                            self.stack.push(val);
+                        }
+                    };
                 }
                 OpCode::Return => {
                     match self.stack.pop() {
                         Some(c) => println!("{}", c),
-                        None => ()
+                        None => (),
                     }
-                    // self.print_state();
                     break InterpretResult::OK
                 }
-            }
+            };
             self.ip += 1;
         }
     }
 }
 
-fn init_vm<'a>(chunk: &'a Chunk) -> VM<'a> {
+fn init_vm(chunk: Chunk) -> VM {
     VM{
         chunk: chunk,
         ip: 0,
@@ -123,10 +132,10 @@ fn main() {
     let lines = vec![123, 123];
     let constant_pool: ValueArray = vec![Value::Float(1.2)];
     let chunk: Chunk = Chunk{
-        code: vec![OpCode::Constant(0), OpCode::Return],
+        code: vec![OpCode::Constant(0), OpCode::Negate(0), OpCode::Return],
         lines: lines,
         constants: constant_pool,
     };
-    chunk.disassemble();
-    init_vm(&chunk).interpret(false);
+    // chunk.disassemble();
+    init_vm(chunk).interpret(false);
 }

@@ -129,13 +129,13 @@ fn init_vm(chunk: Chunk) -> VM {
 }
 
 fn main() {
-    let lines = vec![123, 123];
     let constant_pool: ValueArray = vec![Value::Float(1.2)];
+    let lines = vec![123, 123, 123];
     let chunk: Chunk = Chunk{
         code: vec![OpCode::Constant(0), OpCode::Negate(0), OpCode::Return],
         lines: lines,
         constants: constant_pool,
     };
-    // chunk.disassemble();
+    chunk.disassemble();
     init_vm(chunk).interpret(false);
 }

@@ -134,11 +134,10 @@ impl VM {
 
     fn interpret(mut self, debug: bool) -> InterpretResult {
         loop {
-            let instruction = &self.chunk.code[self.ip];
             if debug {
                 self.chunk.disassemble_instruction(self.ip);
             }
-            match instruction {
+            match &self.chunk.code[self.ip] {
                 OpCode::Constant(ptr) => {
                     self.stack.push(self.chunk.read_constant(*ptr));
                 }
@@ -149,36 +148,28 @@ impl VM {
                     }
                 }
                 OpCode::Add => {
-                    let a = self.stack.pop();
-                    let b = self.stack.pop();
-                    match (a, b) {
+                    match (self.stack.pop(), self.stack.pop()) {
                         (_, None) => break InterpretResult::RuntimeError,
                         (None, _) => break InterpretResult::RuntimeError,
                         (Some(a), Some(b)) => self.stack.push(a.add(b)),
                     }
                 }
                 OpCode::Subtract => {
-                    let a = self.stack.pop();
-                    let b = self.stack.pop();
-                    match (a, b) {
+                    match (self.stack.pop(), self.stack.pop()) {
                         (_, None) => break InterpretResult::RuntimeError,
                         (None, _) => break InterpretResult::RuntimeError,
                         (Some(a), Some(b)) => self.stack.push(a.subtract(b)),
                     }
                 }
                 OpCode::Multiply => {
-                    let a = self.stack.pop();
-                    let b = self.stack.pop();
-                    match (a, b) {
+                    match (self.stack.pop(), self.stack.pop()) {
                         (_, None) => break InterpretResult::RuntimeError,
                         (None, _) => break InterpretResult::RuntimeError,
                         (Some(a), Some(b)) => self.stack.push(a.multiply(b)),
                     }
                 }
                 OpCode::Divide => {
-                    let a = self.stack.pop();
-                    let b = self.stack.pop();
-                    match (a, b) {
+                    match (self.stack.pop(), self.stack.pop()) {
                         (_, None) => break InterpretResult::RuntimeError,
                         (None, _) => break InterpretResult::RuntimeError,
                         (Some(a), Some(b)) => self.stack.push(a.divide(b)),

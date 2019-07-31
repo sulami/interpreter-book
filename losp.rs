@@ -2,11 +2,11 @@ mod vm;
 use vm::{Chunk, OpCode, Value};
 
 fn repl() {
-
+    println!("> ");
 }
 
-fn run_file(_path: &String) {
-
+fn run_file(path: &String) {
+    println!("Compiling... {}", path);
 }
 
 fn main() {
@@ -38,7 +38,10 @@ fn main() {
         1 => repl(),
         2 => run_file(&opts.last().expect("the world is ending")),
         _ => {
-            println!("Ouch!");
+            let name = "losp";
+            println!("useage:");
+            println!("{}        - start repl", name);
+            println!("{} <file> - run file", name);
             std::process::exit(64);
         }
     }

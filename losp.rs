@@ -52,6 +52,7 @@ impl std::fmt::Debug for Value {
 
 type ValueArray = Vec<Value>;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 enum OpCode {
     Constant(usize),
@@ -76,6 +77,7 @@ impl Chunk {
         }
     }
 
+    #[allow(dead_code)]
     fn disassemble(&self) {
         for i in 0..self.code.len() {
             self.disassemble_instruction(i)
@@ -114,9 +116,10 @@ struct VM {
     stack: ValueArray,
 }
 
+#[allow(dead_code)]
 enum InterpretResult {
     OK,
-    // CompileError,
+    CompileError,
     RuntimeError,
 }
 

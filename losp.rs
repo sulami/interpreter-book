@@ -11,25 +11,25 @@ impl Value {
 
     fn add(&self, other: Value) -> Value {
         match (self, other) {
-            (Value::Float(a), Value::Float(b)) => Value::Float(b+a)
+            (Value::Float(a), Value::Float(b)) => Value::Float(a+b)
         }
     }
 
     fn subtract(&self, other: Value) -> Value {
         match (self, other) {
-            (Value::Float(a), Value::Float(b)) => Value::Float(b-a)
+            (Value::Float(a), Value::Float(b)) => Value::Float(a-b)
         }
     }
 
     fn multiply(&self, other: Value) -> Value {
         match (self, other) {
-            (Value::Float(a), Value::Float(b)) => Value::Float(b*a)
+            (Value::Float(a), Value::Float(b)) => Value::Float(a*b)
         }
     }
 
     fn divide(&self, other: Value) -> Value {
         match (self, other) {
-            (Value::Float(a), Value::Float(b)) => Value::Float(b/a)
+            (Value::Float(a), Value::Float(b)) => Value::Float(a/b)
         }
     }
 }
@@ -151,28 +151,28 @@ impl VM {
                     match (self.stack.pop(), self.stack.pop()) {
                         (_, None) => break InterpretResult::RuntimeError,
                         (None, _) => break InterpretResult::RuntimeError,
-                        (Some(a), Some(b)) => self.stack.push(a.add(b)),
+                        (Some(a), Some(b)) => self.stack.push(b.add(a)),
                     }
                 }
                 OpCode::Subtract => {
                     match (self.stack.pop(), self.stack.pop()) {
                         (_, None) => break InterpretResult::RuntimeError,
                         (None, _) => break InterpretResult::RuntimeError,
-                        (Some(a), Some(b)) => self.stack.push(a.subtract(b)),
+                        (Some(a), Some(b)) => self.stack.push(b.subtract(a)),
                     }
                 }
                 OpCode::Multiply => {
                     match (self.stack.pop(), self.stack.pop()) {
                         (_, None) => break InterpretResult::RuntimeError,
                         (None, _) => break InterpretResult::RuntimeError,
-                        (Some(a), Some(b)) => self.stack.push(a.multiply(b)),
+                        (Some(a), Some(b)) => self.stack.push(b.multiply(a)),
                     }
                 }
                 OpCode::Divide => {
                     match (self.stack.pop(), self.stack.pop()) {
                         (_, None) => break InterpretResult::RuntimeError,
                         (None, _) => break InterpretResult::RuntimeError,
-                        (Some(a), Some(b)) => self.stack.push(a.divide(b)),
+                        (Some(a), Some(b)) => self.stack.push(b.divide(a)),
                     }
                 }
                 OpCode::Return => {

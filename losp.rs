@@ -1,10 +1,3 @@
-#[derive(Debug)]
-enum OpCode {
-    Constant(usize),
-    Negate,
-    Return,
-}
-
 enum Value {
     Float(f64),
 }
@@ -13,6 +6,30 @@ impl Value {
     fn negate(&self) -> Value {
         match self {
             Value::Float(x) => Value::Float(-x),
+        }
+    }
+
+    fn add(&self, other: Value) -> Value {
+        match (self, other) {
+            (Value::Float(a), Value::Float(b)) => Value::Float(b+a)
+        }
+    }
+
+    fn subtract(&self, other: Value) -> Value {
+        match (self, other) {
+            (Value::Float(a), Value::Float(b)) => Value::Float(b-a)
+        }
+    }
+
+    fn multiply(&self, other: Value) -> Value {
+        match (self, other) {
+            (Value::Float(a), Value::Float(b)) => Value::Float(b*a)
+        }
+    }
+
+    fn divide(&self, other: Value) -> Value {
+        match (self, other) {
+            (Value::Float(a), Value::Float(b)) => Value::Float(b/a)
         }
     }
 }
@@ -34,6 +51,17 @@ impl std::fmt::Debug for Value {
 }
 
 type ValueArray = Vec<Value>;
+
+#[derive(Debug)]
+enum OpCode {
+    Constant(usize),
+    Negate,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Return,
+}
 
 struct Chunk {
     code: Vec<OpCode>,
@@ -62,8 +90,12 @@ impl Chunk {
             print!("{:04x} {:>5} ", index, &self.lines[index]);
         };
         match instruction {
-            OpCode::Constant(ptr) => println!("CONSTANT \t{} \t{}", ptr, self.read_constant(*ptr)),
+            OpCode::Constant(ptr) => println!("CONSTANT \t[{}] =>\t{}", ptr, self.read_constant(*ptr)),
             OpCode::Negate => println!("NEGATE"),
+            OpCode::Add => println!("ADD"),
+            OpCode::Subtract => println!("SUBTRACT"),
+            OpCode::Multiply => println!("MULTIPLY"),
+            OpCode::Divide => println!("DIVIDE"),
             OpCode::Return => println!("RETURN"),
         }
     }
@@ -113,6 +145,42 @@ impl VM {
                         None => break InterpretResult::RuntimeError,
                     }
                 }
+                OpCode::Add => {
+                    let a = self.stack.pop();
+                    let b = self.stack.pop();
+                    match (a, b) {
+                        (_, None) => break InterpretResult::RuntimeError,
+                        (None, _) => break InterpretResult::RuntimeError,
+                        (Some(a), Some(b)) => self.stack.push(a.add(b)),
+                    }
+                }
+                OpCode::Subtract => {
+                    let a = self.stack.pop();
+                    let b = self.stack.pop();
+                    match (a, b) {
+                        (_, None) => break InterpretResult::RuntimeError,
+                        (None, _) => break InterpretResult::RuntimeError,
+                        (Some(a), Some(b)) => self.stack.push(a.subtract(b)),
+                    }
+                }
+                OpCode::Multiply => {
+                    let a = self.stack.pop();
+                    let b = self.stack.pop();
+                    match (a, b) {
+                        (_, None) => break InterpretResult::RuntimeError,
+                        (None, _) => break InterpretResult::RuntimeError,
+                        (Some(a), Some(b)) => self.stack.push(a.multiply(b)),
+                    }
+                }
+                OpCode::Divide => {
+                    let a = self.stack.pop();
+                    let b = self.stack.pop();
+                    match (a, b) {
+                        (_, None) => break InterpretResult::RuntimeError,
+                        (None, _) => break InterpretResult::RuntimeError,
+                        (Some(a), Some(b)) => self.stack.push(a.divide(b)),
+                    }
+                }
                 OpCode::Return => {
                     match self.stack.pop() {
                         Some(c) => println!("{}", c),
@@ -138,10 +206,25 @@ fn init_vm(chunk: Chunk) -> VM {
 }
 
 fn main() {
+    // Negate a constant
     let chunk: Chunk = Chunk{
         code: vec![OpCode::Constant(0), OpCode::Negate, OpCode::Return],
         lines: vec![123, 123, 123],
         constants: vec![Value::Float(1.2)],
+    };
+    init_vm(chunk).interpret(true);
+
+    // Multiply some constants
+    let chunk: Chunk = Chunk{
+        code: vec![OpCode::Constant(0),
+                   OpCode::Constant(1),
+                   OpCode::Add,
+                   OpCode::Constant(2),
+                   OpCode::Divide,
+                   OpCode::Negate,
+                   OpCode::Return],
+        lines: vec![123, 124, 125, 125, 125, 126, 126],
+        constants: vec![Value::Float(1.2), Value::Float(3.4), Value::Float(5.6)],
     };
     // chunk.disassemble();
     init_vm(chunk).interpret(true);

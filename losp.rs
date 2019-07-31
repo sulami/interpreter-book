@@ -1,12 +1,20 @@
 #[derive(Debug)]
 enum OpCode {
     Constant(usize),
-    Negate(usize),
+    Negate,
     Return,
 }
 
 enum Value {
     Float(f64),
+}
+
+impl Value {
+    fn negate(&self) -> Value {
+        match self {
+            Value::Float(x) => Value::Float(-x),
+        }
+    }
 }
 
 impl std::fmt::Display for Value {
@@ -55,7 +63,7 @@ impl Chunk {
         };
         match instruction {
             OpCode::Constant(ptr) => println!("CONSTANT \t{} \t{}", ptr, self.read_constant(*ptr)),
-            OpCode::Negate(ptr) => println!("NEGATE \t{} \t{}", ptr, self.read_constant(*ptr)),
+            OpCode::Negate => println!("NEGATE"),
             OpCode::Return => println!("RETURN"),
         }
     }
@@ -77,7 +85,7 @@ struct VM {
 enum InterpretResult {
     OK,
     // CompileError,
-    // RuntimeError,
+    RuntimeError,
 }
 
 impl VM {
@@ -99,18 +107,19 @@ impl VM {
                 OpCode::Constant(ptr) => {
                     self.stack.push(self.chunk.read_constant(*ptr));
                 }
-                OpCode::Negate(ptr) => {
-                    match self.chunk.read_constant(*ptr) {
-                        Value::Float(n) => {
-                            let val: Value = Value::Float(-n);
-                            self.stack.push(val);
-                        }
-                    };
+                OpCode::Negate => {
+                    match self.stack.pop() {
+                        Some(v) => self.stack.push(v.negate()),
+                        None => break InterpretResult::RuntimeError,
+                    }
                 }
                 OpCode::Return => {
                     match self.stack.pop() {
                         Some(c) => println!("{}", c),
                         None => (),
+                    }
+                    if debug {
+                        self.print_state();
                     }
                     break InterpretResult::OK
                 }
@@ -129,13 +138,11 @@ fn init_vm(chunk: Chunk) -> VM {
 }
 
 fn main() {
-    let constant_pool: ValueArray = vec![Value::Float(1.2)];
-    let lines = vec![123, 123, 123];
     let chunk: Chunk = Chunk{
-        code: vec![OpCode::Constant(0), OpCode::Negate(0), OpCode::Return],
-        lines: lines,
-        constants: constant_pool,
+        code: vec![OpCode::Constant(0), OpCode::Negate, OpCode::Return],
+        lines: vec![123, 123, 123],
+        constants: vec![Value::Float(1.2)],
     };
-    chunk.disassemble();
-    init_vm(chunk).interpret(false);
+    // chunk.disassemble();
+    init_vm(chunk).interpret(true);
 }

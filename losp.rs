@@ -1,9 +1,17 @@
 mod vm;
 // use vm::{Chunk, OpCode, Value};
 
+use std::io::prelude::*;
+use std::io::BufReader;
+use std::io::Result;
 use std::io::Write;
+use std::fs::File;
 
-fn repl() {
+fn interpret(_input: String) -> vm::InterpretResult {
+    vm::InterpretResult::OK
+}
+
+fn repl() -> Result<()> {
     loop {
         print!("> ");
         let _ = std::io::stdout().flush();
@@ -13,14 +21,25 @@ fn repl() {
             println!("");
             break;
         }
+        interpret(input);
+    }
+    Ok(())
+}
+
+fn run_file(path: &String) -> Result<()> {
+    println!("Compiling {}...", path);
+    let file = File::open(path)?;
+    let mut buf_reader = BufReader::new(file);
+    let mut source = String::new();
+    buf_reader.read_to_string(&mut source)?;
+    match interpret(source) {
+        vm::InterpretResult::OK => Ok(()),
+        vm::InterpretResult::CompileError => std::process::exit(65),
+        vm::InterpretResult::RuntimeError => std::process::exit(70),
     }
 }
 
-fn run_file(path: &String) {
-    println!("Compiling... {}", path);
-}
-
-fn main() {
+fn main() -> Result<()> {
     // Negate a constant
     // let chunk: Chunk = Chunk{
     //     code: vec![OpCode::Constant(0), OpCode::Negate, OpCode::Return],

@@ -23,34 +23,22 @@ struct Token {
     length: usize,
 }
 
-fn scan_token(source: &String, offset: usize) -> Token {
-    Token {
-        token_type: TokenType::EOF,
-        start: offset,
-        line: 0,
-        length: 1,
+fn scan_token(c: &char, offset: usize) -> Token {
+    match c {
+        _ => Token {
+            token_type: TokenType::EOF,
+            start: offset,
+            line: 0,
+            length: 1,
+        }
     }
 }
 
 fn scan(source: String) -> Vec<Token> {
-    let mut offset = 0;
-    let mut line = 0;
-    let mut tokens = vec![];
-    loop {
-        let token = scan_token(&source, offset);
-        if token.line != line {
-            print!("{:4}", token.line);
-            line = token.line;
-        } else {
-            print!("   | ");
-        }
-        println!("{:?} {} {}", token.token_type, token.length, token.start);
-        if token.token_type == TokenType::EOF {
-            break tokens;
-        }
-        offset = offset + token.length;
-        tokens.insert(tokens.len(), token);
-    }
+    source
+        .char_indices()
+        .map(|(offset, c)| scan_token(&c, offset))
+        .collect()
 }
 
 fn compile (source: String) -> vm::InterpretResult {

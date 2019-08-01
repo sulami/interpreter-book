@@ -1,8 +1,19 @@
 mod vm;
-use vm::{Chunk, OpCode, Value};
+// use vm::{Chunk, OpCode, Value};
+
+use std::io::Write;
 
 fn repl() {
-    println!("> ");
+    loop {
+        print!("> ");
+        let _ = std::io::stdout().flush();
+        let mut input = String::new();
+        let _ = std::io::stdin().read_line(&mut input);
+        if input == "" {
+            println!("");
+            break;
+        }
+    }
 }
 
 fn run_file(path: &String) {

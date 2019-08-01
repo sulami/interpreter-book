@@ -7,8 +7,59 @@ use std::io::Result;
 use std::io::Write;
 use std::fs::File;
 
-fn interpret(_input: String) -> vm::InterpretResult {
+#[derive(Debug,PartialEq)]
+enum TokenType {
+    OpenParenthesis,
+    CloseParenthesis,
+    Symbol,
+    EOF,
+    Error,
+}
+
+struct Token {
+    token_type: TokenType,
+    line: usize,
+    start: usize,
+    length: usize,
+}
+
+fn scan_token(source: &String, offset: usize) -> Token {
+    Token {
+        token_type: TokenType::EOF,
+        start: offset,
+        line: 0,
+        length: 1,
+    }
+}
+
+fn scan(source: String) -> Vec<Token> {
+    let mut offset = 0;
+    let mut line = 0;
+    let mut tokens = vec![];
+    loop {
+        let token = scan_token(&source, offset);
+        if token.line != line {
+            print!("{:4}", token.line);
+            line = token.line;
+        } else {
+            print!("   | ");
+        }
+        println!("{:?} {} {}", token.token_type, token.length, token.start);
+        if token.token_type == TokenType::EOF {
+            break tokens;
+        }
+        offset = offset + token.length;
+        tokens.insert(tokens.len(), token);
+    }
+}
+
+fn compile (source: String) -> vm::InterpretResult {
+    scan(source);
     vm::InterpretResult::OK
+}
+
+fn interpret(source: String) -> vm::InterpretResult {
+    compile(source)
 }
 
 fn repl() -> Result<()> {

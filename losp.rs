@@ -8,6 +8,12 @@ use std::io::Write;
 use std::fs::File;
 
 #[derive(Debug,PartialEq)]
+enum ScanError {
+    UnterminatedString,
+    Unknown,
+}
+
+#[derive(Debug,PartialEq)]
 enum TokenType {
     // parens
     OpenParenthesis, CloseParenthesis,
@@ -21,7 +27,7 @@ enum TokenType {
     // symbols
     Symbol,
     // i am
-    Error,
+    Error(ScanError),
 }
 
 struct Token {
@@ -71,7 +77,8 @@ fn scan_token(source: &Vec<char>, offset: usize) -> Token {
                     break (TokenType::String, string_length + 1)
                 }
                 if source.len() <= start + string_length {
-                    break (TokenType::Error, string_length)
+                    break (TokenType::Error(ScanError::UnterminatedString),
+                           string_length)
                 }
                 string_length += 1;
             }
@@ -100,7 +107,7 @@ fn scan_token(source: &Vec<char>, offset: usize) -> Token {
                     }
                 (TokenType::Symbol, token_length)
             } else {
-                (TokenType::Error, 1)
+                (TokenType::Error(ScanError::Unknown), 1)
             }
         },
     };

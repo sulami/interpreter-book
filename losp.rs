@@ -19,6 +19,7 @@ enum TokenType {
     // parens
     OpenParenthesis, CloseParenthesis,
     OpenBracket, CloseBracket,
+    OpenBrace, CloseBrace,
     // literals
     String, Number,
     // special syntax
@@ -51,9 +52,13 @@ fn is_symbol(c: char) -> bool {
         || c == '>'
         || c == '<'
         || c == '*'
+        || c == '+'
+        || c == '.'
         || c == '!'
+        || c == '?'
         || c == '/'
         || c == ':'
+        || c == '='
 }
 
 fn scan_token(source: &Vec<char>, offset: usize) -> Token {
@@ -72,6 +77,8 @@ fn scan_token(source: &Vec<char>, offset: usize) -> Token {
         ')' => (TokenType::CloseParenthesis, 1),
         '[' => (TokenType::OpenBracket, 1),
         ']' => (TokenType::CloseBracket, 1),
+        '{' => (TokenType::OpenBrace, 1),
+        '}' => (TokenType::CloseBrace, 1),
         '\'' => (TokenType::Quote, 1),
         '"' => {
             let mut string_length = 1;
@@ -151,13 +158,16 @@ fn scan(source: String) -> Vec<Token> {
     }
 }
 
-fn compile (source: String) -> vm::InterpretResult {
-    scan(source);
-    vm::InterpretResult::OK
+fn compile (source: String) -> Option<vm::Chunk> {
+    let tokens = scan(source);
+    None
 }
 
 fn interpret(source: String) -> vm::InterpretResult {
-    compile(source)
+    match compile(source) {
+        None => vm::InterpretResult::CompileError,
+        Some(byte_code) => vm::init_vm(byte_code).interpret(true)
+    }
 }
 
 fn repl() -> Result<()> {

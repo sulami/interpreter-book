@@ -42,6 +42,12 @@ fn scan_token(source: &Vec<char>, offset: usize) -> Token {
     while start < source.len() - 1 && source[start].is_whitespace() {
         start += 1;
     }
+    if source[start] == ';' {
+        while start < source.len() - 1 && source[start] != '\n' {
+            start += 1;
+        }
+        start += 1; // skip the newline
+    }
     let (token_type, length) = match source[start] {
         '(' => (TokenType::OpenParenthesis, 1),
         ')' => (TokenType::CloseParenthesis, 1),

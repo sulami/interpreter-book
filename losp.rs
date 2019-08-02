@@ -12,6 +12,8 @@ use std::fs::File;
 enum TokenType {
     OpenParenthesis,
     CloseParenthesis,
+    QuotationMark,
+    Quote,
     Symbol,
     EOF,
     Error,
@@ -24,35 +26,41 @@ struct Token {
     length: usize,
 }
 
+fn is_symbol(c: char) -> bool {
+    c.is_alphanumeric()
+        || c == '-'
+        || c == '_'
+        || c == '>'
+        || c == '<'
+        || c == '*'
+        || c == '!'
+}
+
 fn scan_token(source: &Vec<char>, offset: usize, line: usize) -> Token {
-    if offset == source.len() {
-        Token {
-            token_type: TokenType::EOF,
-            start: offset,
-            line: line,
-            length: 1,
-        }
+    let (token_type, length) = if offset == source.len() {
+        (TokenType::EOF, 1)
     } else {
         match source[offset] {
-            '(' => Token {
-                token_type: TokenType::OpenParenthesis,
-                start: offset,
-                line: line,
-                length: 1,
-            },
-            ')' => Token {
-                token_type: TokenType::CloseParenthesis,
-                start: offset,
-                line: line,
-                length: 1,
-            },
-            _ => Token {
-                token_type: TokenType::Symbol,
-                start: offset,
-                line: line,
-                length: 1,
+            '(' => (TokenType::OpenParenthesis, 1),
+            ')' => (TokenType::CloseParenthesis, 1),
+            '"' => (TokenType::QuotationMark, 1),
+            '\'' => (TokenType::Quote, 1),
+            _ => {
+                let mut token_length = 1;
+                while offset + token_length < source.len()
+                    && is_symbol(source[offset + token_length]) {
+                        token_length += 1;
+                }
+                (TokenType::Symbol, token_length)
             },
         }
+    };
+    // TODO find line number
+    Token {
+        token_type: token_type,
+        start: offset,
+        line: line,
+        length: length,
     }
 }
 
@@ -69,10 +77,11 @@ fn scan(source: String) -> Vec<Token> {
         } else {
             print!("   | ");
         }
-        println!("{:?} {} {}", token.token_type, token.length, token.start);
         if token.token_type == TokenType::EOF {
             break tokens;
         }
+        let v: String = source_chars[token.start..token.start+token.length].into_iter().collect();
+        println!("{:?} {} {} {}", token.token_type, token.length, token.start, v);
         offset = offset + token.length;
         tokens.insert(tokens.len(), token);
     }

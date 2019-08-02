@@ -34,6 +34,18 @@ fn scan_token(source: &Vec<char>, offset: usize, line: usize) -> Token {
         }
     } else {
         match source[offset] {
+            '(' => Token {
+                token_type: TokenType::OpenParenthesis,
+                start: offset,
+                line: line,
+                length: 1,
+            },
+            ')' => Token {
+                token_type: TokenType::CloseParenthesis,
+                start: offset,
+                line: line,
+                length: 1,
+            },
             _ => Token {
                 token_type: TokenType::Symbol,
                 start: offset,

@@ -11,7 +11,7 @@ use std::fs::File;
 enum ScanError {
     UnterminatedString,
     EmptyKeyword,
-    Unknown,
+    RanOff,
 }
 
 #[derive(Debug,PartialEq)]
@@ -27,6 +27,8 @@ enum TokenType {
     Keyword,
     // symbols
     Symbol,
+    // we're done here
+    EOF,
     // i am
     Error(ScanError),
 }
@@ -97,7 +99,9 @@ fn scan_token(source: &Vec<char>, offset: usize) -> Token {
             }
         }
         _ => {
-            if is_number(source[start]) {
+            if start == source.len() - 1 {
+                (TokenType::EOF, 1)
+            } else if is_number(source[start]) {
                 let mut token_length = 1;
                 while start + token_length < source.len()
                     && is_number(source[start + token_length]) {
@@ -112,7 +116,7 @@ fn scan_token(source: &Vec<char>, offset: usize) -> Token {
                     }
                 (TokenType::Symbol, token_length)
             } else {
-                (TokenType::Error(ScanError::Unknown), 1)
+                (TokenType::Error(ScanError::RanOff), 1)
             }
         },
     };

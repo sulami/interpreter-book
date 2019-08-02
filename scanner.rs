@@ -25,10 +25,26 @@ enum TokenType {
     Error(ScanError),
 }
 
+#[derive(Debug)]
 pub struct Token {
     token_type: TokenType,
     start: usize,
     length: usize,
+}
+
+impl Token {
+    pub fn is_error(&self) -> bool {
+        match self.token_type {
+            TokenType::Error(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn get_token(&self, source: &Vec<char>) -> String {
+        source[self.start..self.start+self.length]
+            .into_iter()
+            .collect()
+    }
 }
 
 fn is_number(c: char) -> bool {
@@ -133,17 +149,21 @@ fn scan_token(source: &Vec<char>, offset: usize) -> Token {
     }
 }
 
-pub fn scan(source: String) -> Vec<Token> {
-    let source_chars: Vec<char> = source.chars().collect();
+pub fn scan(source: &Vec<char>, debug: bool) -> Vec<Token> {
     let mut offset = 0;
     let mut tokens = vec![];
     loop {
-        if offset >= source_chars.len() {
+        if offset >= source.len() {
             break tokens;
         }
-        let token = scan_token(&source_chars, offset);
-        let v: String = source_chars[token.start..token.start+token.length].into_iter().collect();
-        println!("{:?} {} {} {}", token.token_type, token.length, token.start, v);
+        let token = scan_token(&source, offset);
+        if debug {
+            println!("{:?} {} {} {}",
+                     token.token_type,
+                     token.length,
+                     token.start,
+                     token.get_token(&source));
+        }
         offset = token.start + token.length;
         tokens.insert(tokens.len(), token);
     }

@@ -7,9 +7,28 @@ use std::io::Result;
 use std::io::Write;
 use std::fs::File;
 
-fn compile (source: String) -> Option<vm::Chunk> {
-    let tokens = scanner::scan(source);
-    None
+// fn advance(tokens: &Vec<scanner::Token>) -> Result<()> {
+//     Ok(())
+// }
+
+fn report_error(error: &scanner::Token, source: &Vec<char>) {
+    println!("Error at {}: {:?}", error.get_token(source), error);
+}
+
+fn compile(source: String) -> Option<vm::Chunk> {
+    let source_chars: Vec<char> = source.chars().collect();
+    let tokens = scanner::scan(&source_chars, true);
+    let mut errors = tokens
+        .iter()
+        .filter(|token| token.is_error())
+        .peekable();
+    match errors.peek() {
+        Some(_) => {
+            errors.for_each(|e| report_error(&e, &source_chars));
+            None
+        },
+        None => None,
+    }
 }
 
 fn interpret(source: String) -> vm::InterpretResult {

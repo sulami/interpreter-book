@@ -12,6 +12,8 @@ use std::fs::File;
 enum TokenType {
     OpenParenthesis,
     CloseParenthesis,
+    OpenBracket,
+    CloseBracket,
     QuotationMark,
     Quote,
     Symbol,
@@ -34,6 +36,8 @@ fn is_symbol(c: char) -> bool {
         || c == '<'
         || c == '*'
         || c == '!'
+        || c == '/'
+        || c == ':'
 }
 
 fn scan_token(source: &Vec<char>, offset: usize, line: usize) -> Token {
@@ -41,23 +45,27 @@ fn scan_token(source: &Vec<char>, offset: usize, line: usize) -> Token {
     while start < source.len() - 1 && source[start].is_whitespace() {
         start += 1;
     }
-    let (token_type, length) = if offset == source.len() {
-        (TokenType::EOF, 1)
-    } else {
-        match source[start] {
-            '(' => (TokenType::OpenParenthesis, 1),
-            ')' => (TokenType::CloseParenthesis, 1),
-            '"' => (TokenType::QuotationMark, 1),
-            '\'' => (TokenType::Quote, 1),
-            _ => {
+    let (token_type, length) = match source[start] {
+        '(' => (TokenType::OpenParenthesis, 1),
+        ')' => (TokenType::CloseParenthesis, 1),
+        '[' => (TokenType::OpenBracket, 1),
+        ']' => (TokenType::CloseBracket, 1),
+        '"' => (TokenType::QuotationMark, 1),
+        '\'' => (TokenType::Quote, 1),
+        _ => {
+            if is_symbol(source[start]) {
                 let mut token_length = 1;
                 while start + token_length < source.len()
                     && is_symbol(source[start + token_length]) {
                         token_length += 1;
-                }
+                    }
                 (TokenType::Symbol, token_length)
-            },
-        }
+            } else if start == source.len() - 1 {
+                (TokenType::EOF, 1)
+            } else {
+                (TokenType::Error, 1)
+            }
+        },
     };
     // TODO find line number
     Token {
@@ -75,14 +83,14 @@ fn scan(source: String) -> Vec<Token> {
     let mut tokens = vec![];
     loop {
         let token = scan_token(&source_chars, offset, line);
+        if token.token_type == TokenType::EOF {
+            break tokens;
+        }
         if token.line != line {
             print!("{:4}", token.line);
             line = token.line;
         } else {
             print!("   | ");
-        }
-        if token.token_type == TokenType::EOF {
-            break tokens;
         }
         let v: String = source_chars[token.start..token.start+token.length].into_iter().collect();
         println!("{:?} {} {} {}", token.token_type, token.length, token.start, v);

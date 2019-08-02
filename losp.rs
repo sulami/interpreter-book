@@ -7,6 +7,7 @@ use std::io::Result;
 use std::io::Write;
 use std::fs::File;
 
+#[allow(dead_code)]
 #[derive(Debug,PartialEq)]
 enum TokenType {
     OpenParenthesis,
@@ -23,22 +24,46 @@ struct Token {
     length: usize,
 }
 
-fn scan_token(c: &char, offset: usize) -> Token {
-    match c {
-        _ => Token {
+fn scan_token(source: &Vec<char>, offset: usize, line: usize) -> Token {
+    if offset == source.len() {
+        Token {
             token_type: TokenType::EOF,
             start: offset,
-            line: 0,
+            line: line,
             length: 1,
+        }
+    } else {
+        match source[offset] {
+            _ => Token {
+                token_type: TokenType::Symbol,
+                start: offset,
+                line: line,
+                length: 1,
+            },
         }
     }
 }
 
 fn scan(source: String) -> Vec<Token> {
-    source
-        .char_indices()
-        .map(|(offset, c)| scan_token(&c, offset))
-        .collect()
+    let source_chars = source.chars().collect();
+    let mut offset = 0;
+    let mut line = 0;
+    let mut tokens = vec![];
+    loop {
+        let token = scan_token(&source_chars, offset, line);
+        if token.line != line {
+            print!("{:4}", token.line);
+            line = token.line;
+        } else {
+            print!("   | ");
+        }
+        println!("{:?} {} {}", token.token_type, token.length, token.start);
+        if token.token_type == TokenType::EOF {
+            break tokens;
+        }
+        offset = offset + token.length;
+        tokens.insert(tokens.len(), token);
+    }
 }
 
 fn compile (source: String) -> vm::InterpretResult {

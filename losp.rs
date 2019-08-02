@@ -23,7 +23,6 @@ enum TokenType {
 
 struct Token {
     token_type: TokenType,
-    line: usize,
     start: usize,
     length: usize,
 }
@@ -40,7 +39,7 @@ fn is_symbol(c: char) -> bool {
         || c == ':'
 }
 
-fn scan_token(source: &Vec<char>, offset: usize, line: usize) -> Token {
+fn scan_token(source: &Vec<char>, offset: usize) -> Token {
     let mut start = offset;
     while start < source.len() - 1 && source[start].is_whitespace() {
         start += 1;
@@ -67,11 +66,9 @@ fn scan_token(source: &Vec<char>, offset: usize, line: usize) -> Token {
             }
         },
     };
-    // TODO find line number
     Token {
         token_type: token_type,
         start: start,
-        line: line,
         length: length,
     }
 }
@@ -79,18 +76,11 @@ fn scan_token(source: &Vec<char>, offset: usize, line: usize) -> Token {
 fn scan(source: String) -> Vec<Token> {
     let source_chars = source.chars().collect();
     let mut offset = 0;
-    let mut line = 0;
     let mut tokens = vec![];
     loop {
-        let token = scan_token(&source_chars, offset, line);
+        let token = scan_token(&source_chars, offset);
         if token.token_type == TokenType::EOF {
             break tokens;
-        }
-        if token.line != line {
-            print!("{:4}", token.line);
-            line = token.line;
-        } else {
-            print!("   | ");
         }
         let v: String = source_chars[token.start..token.start+token.length].into_iter().collect();
         println!("{:?} {} {} {}", token.token_type, token.length, token.start, v);

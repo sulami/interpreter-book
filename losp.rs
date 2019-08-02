@@ -16,6 +16,8 @@ enum TokenType {
     String, Number,
     // special syntax
     Quote,
+    // keywords
+    Keyword,
     // symbols
     Symbol,
     // i am
@@ -73,6 +75,14 @@ fn scan_token(source: &Vec<char>, offset: usize) -> Token {
                 }
                 string_length += 1;
             }
+        }
+        ':' => {
+            let mut keyword_length = 1;
+            while start + keyword_length < source.len()
+                && is_symbol(source[start + keyword_length]) {
+                    keyword_length += 1;
+                }
+            (TokenType::Keyword, keyword_length)
         }
         _ => {
             if is_number(source[start]) {

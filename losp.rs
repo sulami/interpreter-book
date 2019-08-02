@@ -98,6 +98,14 @@ fn scan_token(source: &Vec<char>, offset: usize) -> Token {
                 (TokenType::Keyword, keyword_length)
             }
         }
+        '-' => {
+            let mut token_length = 1;
+            while start + token_length < source.len()
+                && is_number(source[start + token_length]) {
+                    token_length += 1;
+                }
+            (TokenType::Number, token_length)
+        }
         _ => {
             if start == source.len() - 1 {
                 (TokenType::EOF, 1)

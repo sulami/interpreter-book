@@ -9,13 +9,16 @@ use std::fs::File;
 
 #[derive(Debug,PartialEq)]
 enum TokenType {
-    OpenParenthesis,
-    CloseParenthesis,
-    OpenBracket,
-    CloseBracket,
-    String,
+    // parens
+    OpenParenthesis, CloseParenthesis,
+    OpenBracket, CloseBracket,
+    // literals
+    String, Number,
+    // special syntax
     Quote,
+    // symbols
     Symbol,
+    // i am
     Error,
 }
 
@@ -23,6 +26,11 @@ struct Token {
     token_type: TokenType,
     start: usize,
     length: usize,
+}
+
+fn is_number(c: char) -> bool {
+    c.is_ascii_digit()
+        || c == '.'
 }
 
 fn is_symbol(c: char) -> bool {
@@ -67,7 +75,14 @@ fn scan_token(source: &Vec<char>, offset: usize) -> Token {
             }
         }
         _ => {
-            if is_symbol(source[start]) {
+            if is_number(source[start]) {
+                let mut token_length = 1;
+                while start + token_length < source.len()
+                    && is_number(source[start + token_length]) {
+                        token_length += 1;
+                    }
+                (TokenType::Number, token_length)
+            } else if is_symbol(source[start]) {
                 let mut token_length = 1;
                 while start + token_length < source.len()
                     && is_symbol(source[start + token_length]) {

@@ -7,17 +7,15 @@ use std::io::Result;
 use std::io::Write;
 use std::fs::File;
 
-#[allow(dead_code)]
 #[derive(Debug,PartialEq)]
 enum TokenType {
     OpenParenthesis,
     CloseParenthesis,
     OpenBracket,
     CloseBracket,
-    QuotationMark,
+    String,
     Quote,
     Symbol,
-    EOF,
     Error,
 }
 
@@ -49,8 +47,19 @@ fn scan_token(source: &Vec<char>, offset: usize) -> Token {
         ')' => (TokenType::CloseParenthesis, 1),
         '[' => (TokenType::OpenBracket, 1),
         ']' => (TokenType::CloseBracket, 1),
-        '"' => (TokenType::QuotationMark, 1),
         '\'' => (TokenType::Quote, 1),
+        '"' => {
+            let mut string_length = 1;
+            loop {
+                if source[start + string_length] == '"' {
+                    break (TokenType::String, string_length + 1)
+                }
+                if source.len() <= start + string_length {
+                    break (TokenType::Error, string_length)
+                }
+                string_length += 1;
+            }
+        }
         _ => {
             if is_symbol(source[start]) {
                 let mut token_length = 1;
@@ -59,8 +68,6 @@ fn scan_token(source: &Vec<char>, offset: usize) -> Token {
                         token_length += 1;
                     }
                 (TokenType::Symbol, token_length)
-            } else if start == source.len() - 1 {
-                (TokenType::EOF, 1)
             } else {
                 (TokenType::Error, 1)
             }
@@ -74,14 +81,14 @@ fn scan_token(source: &Vec<char>, offset: usize) -> Token {
 }
 
 fn scan(source: String) -> Vec<Token> {
-    let source_chars = source.chars().collect();
+    let source_chars: Vec<char> = source.chars().collect();
     let mut offset = 0;
     let mut tokens = vec![];
     loop {
-        let token = scan_token(&source_chars, offset);
-        if token.token_type == TokenType::EOF {
+        if offset >= source_chars.len() {
             break tokens;
         }
+        let token = scan_token(&source_chars, offset);
         let v: String = source_chars[token.start..token.start+token.length].into_iter().collect();
         println!("{:?} {} {} {}", token.token_type, token.length, token.start, v);
         offset = token.start + token.length;

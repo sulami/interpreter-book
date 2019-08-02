@@ -37,18 +37,22 @@ fn is_symbol(c: char) -> bool {
 }
 
 fn scan_token(source: &Vec<char>, offset: usize, line: usize) -> Token {
+    let mut start = offset;
+    while start < source.len() - 1 && source[start].is_whitespace() {
+        start += 1;
+    }
     let (token_type, length) = if offset == source.len() {
         (TokenType::EOF, 1)
     } else {
-        match source[offset] {
+        match source[start] {
             '(' => (TokenType::OpenParenthesis, 1),
             ')' => (TokenType::CloseParenthesis, 1),
             '"' => (TokenType::QuotationMark, 1),
             '\'' => (TokenType::Quote, 1),
             _ => {
                 let mut token_length = 1;
-                while offset + token_length < source.len()
-                    && is_symbol(source[offset + token_length]) {
+                while start + token_length < source.len()
+                    && is_symbol(source[start + token_length]) {
                         token_length += 1;
                 }
                 (TokenType::Symbol, token_length)
@@ -58,7 +62,7 @@ fn scan_token(source: &Vec<char>, offset: usize, line: usize) -> Token {
     // TODO find line number
     Token {
         token_type: token_type,
-        start: offset,
+        start: start,
         line: line,
         length: length,
     }
@@ -82,7 +86,7 @@ fn scan(source: String) -> Vec<Token> {
         }
         let v: String = source_chars[token.start..token.start+token.length].into_iter().collect();
         println!("{:?} {} {} {}", token.token_type, token.length, token.start, v);
-        offset = offset + token.length;
+        offset = token.start + token.length;
         tokens.insert(tokens.len(), token);
     }
 }

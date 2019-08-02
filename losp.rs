@@ -10,6 +10,7 @@ use std::fs::File;
 #[derive(Debug,PartialEq)]
 enum ScanError {
     UnterminatedString,
+    EmptyKeyword,
     Unknown,
 }
 
@@ -89,7 +90,11 @@ fn scan_token(source: &Vec<char>, offset: usize) -> Token {
                 && is_symbol(source[start + keyword_length]) {
                     keyword_length += 1;
                 }
-            (TokenType::Keyword, keyword_length)
+            if keyword_length == 1 {
+                (TokenType::Error(ScanError::EmptyKeyword), keyword_length)
+            } else {
+                (TokenType::Keyword, keyword_length)
+            }
         }
         _ => {
             if is_number(source[start]) {

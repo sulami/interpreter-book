@@ -68,16 +68,23 @@ fn is_symbol(c: char) -> bool {
         || c == '='
 }
 
-fn scan_token(source: &Vec<char>, offset: usize) -> Token {
+fn advance(source: &Vec<char>, offset: &mut usize, line: &mut usize) {
+    if source[*offset] == '\n' {
+        *line += 1;
+    }
+    *offset += 1;
+}
+
+fn scan_token(source: &Vec<char>, offset: usize, line: &mut usize) -> Token {
     let mut start = offset;
     while start < source.len() - 1 && source[start].is_whitespace() {
-        start += 1;
+        advance(source, &mut start, line);
     }
     if source[start] == ';' {
         while start < source.len() - 1 && source[start] != '\n' {
-            start += 1;
+            advance(source, &mut start, line);
         }
-        start += 1; // skip the newline
+        advance(source, &mut start, line); // skip the newline
     }
     let (token_type, length) = match source[start] {
         '(' => (TokenType::OpenParenthesis, 1),
@@ -88,16 +95,17 @@ fn scan_token(source: &Vec<char>, offset: usize) -> Token {
         '}' => (TokenType::CloseBrace, 1),
         '\'' => (TokenType::Quote, 1),
         '"' => {
-            let mut string_length = 1;
+            let mut string_end = start;
             loop {
-                if source[start + string_length] == '"' {
+                let string_length = string_end - start;
+                if source[string_end] == '"' {
                     break (TokenType::String, string_length + 1)
                 }
-                if source.len() <= start + string_length {
+                if source.len() <= string_end {
                     break (TokenType::Error(ScanError::UnterminatedString),
                            string_length)
                 }
-                string_length += 1;
+                advance(source, &mut string_end, line);
             }
         }
         ':' => {
@@ -152,14 +160,16 @@ fn scan_token(source: &Vec<char>, offset: usize) -> Token {
 pub fn scan(source: &Vec<char>, debug: bool) -> Vec<Token> {
     let mut offset = 0;
     let mut tokens = vec![];
+    let mut line: usize = 1;
     loop {
         if offset >= source.len() {
             break tokens;
         }
-        let token = scan_token(&source, offset);
+        let token = scan_token(&source, offset, &mut line);
         if debug {
-            println!("{:?} {} {} {}",
+            println!("{:?} {} {} {} {}",
                      token.token_type,
+                     line,
                      token.length,
                      token.start,
                      token.get_token(&source));

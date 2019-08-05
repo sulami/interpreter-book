@@ -1,15 +1,13 @@
-mod scanner;
-mod vm;
-
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::io::Result;
 use std::io::Write;
 use std::fs::File;
 
-// fn advance(tokens: &Vec<scanner::Token>) -> Result<()> {
-//     Ok(())
-// }
+mod scanner;
+mod vm;
+
+use vm::{Chunk, OpCode, Value};
 
 fn report_error(error: &scanner::Token, source: &Vec<char>) {
     println!("Error at {}: {:?}", error.get_token(source), error);

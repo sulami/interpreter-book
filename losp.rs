@@ -16,17 +16,17 @@ fn report_error(error: &scanner::Token, source: &Vec<char>) {
 fn compile(source: String) -> Option<vm::Chunk> {
     let source_chars: Vec<char> = source.chars().collect();
     let tokens = scanner::scan(&source_chars, true);
-    let mut errors = tokens
-        .iter()
-        .filter(|token| token.is_error())
-        .peekable();
-    match errors.peek() {
-        Some(_) => {
-            errors.for_each(|e| report_error(&e, &source_chars));
-            None
-        },
-        None => None,
-    }
+    let mut panic_mode = false;
+    for token in tokens {
+        if token.is_error() && !panic_mode {
+            report_error(&token, &source_chars);
+            panic_mode = true;
+        }
+    };
+    if !panic_mode {
+        println!("Compiled!");
+    };
+    None
 }
 
 fn interpret(source: String) -> vm::InterpretResult {
@@ -65,29 +65,6 @@ fn run_file(path: &String) -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    // Negate a constant
-    // let chunk: Chunk = Chunk{
-    //     code: vec![OpCode::Constant(0), OpCode::Negate, OpCode::Return],
-    //     lines: vec![123, 123, 123],
-    //     constants: vec![Value::Float(1.2)],
-    // };
-    // init_vm(chunk).interpret(true);
-
-    // Multiply some constants
-    // let chunk: Chunk = Chunk{
-    //     code: vec![OpCode::Constant(0),
-    //                OpCode::Constant(1),
-    //                OpCode::Add,
-    //                OpCode::Constant(2),
-    //                OpCode::Divide,
-    //                OpCode::Negate,
-    //                OpCode::Return],
-    //     lines: vec![123, 124, 125, 125, 125, 126, 126],
-    //     constants: vec![Value::Float(1.2), Value::Float(3.4), Value::Float(5.6)],
-    // };
-    // vm::init_vm(chunk).interpret(true);
-
-    // TODO need a way to init a vm without a chunk
     let opts = std::env::args();
     match opts.len() {
         1 => repl(),

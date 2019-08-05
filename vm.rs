@@ -84,6 +84,14 @@ impl Chunk {
         }
     }
 
+    pub fn write_constant(&mut self, value: Value) {
+        self.constants.append(&mut vec![value]);
+    }
+
+    pub fn write_line(&mut self, line: u32) {
+        self.lines.append(&mut vec![line]);
+    }
+
     fn disassemble_instruction(&self, index: usize) {
         let instruction: &OpCode = &self.code[index];
         if index > 0 && &self.lines[index] == &self.lines[index-1] {

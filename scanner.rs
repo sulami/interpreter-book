@@ -1,12 +1,12 @@
 #[derive(Debug,PartialEq)]
-enum ScanError {
+pub enum ScanError {
     UnterminatedString,
     EmptyKeyword,
     RanOff,
 }
 
 #[derive(Debug,PartialEq)]
-enum TokenType {
+pub enum TokenType {
     // parens
     OpenParenthesis, CloseParenthesis,
     OpenBracket, CloseBracket,
@@ -27,8 +27,8 @@ enum TokenType {
 
 #[derive(Debug)]
 pub struct Token {
-    token_type: TokenType,
-    line: usize,
+    pub token_type: TokenType,
+    pub line: u32,
     start: usize,
     length: usize,
 }
@@ -69,14 +69,14 @@ fn is_symbol(c: char) -> bool {
         || c == '='
 }
 
-fn advance(source: &Vec<char>, offset: &mut usize, line: &mut usize) {
+fn advance(source: &Vec<char>, offset: &mut usize, line: &mut u32) {
     if source[*offset] == '\n' {
         *line += 1;
     }
     *offset += 1;
 }
 
-fn scan_token(source: &Vec<char>, offset: usize, line: &mut usize) -> Token {
+fn scan_token(source: &Vec<char>, offset: usize, line: &mut u32) -> Token {
     let mut start = offset;
     while start < source.len() - 1 && source[start].is_whitespace() {
         advance(source, &mut start, line);
@@ -162,7 +162,7 @@ fn scan_token(source: &Vec<char>, offset: usize, line: &mut usize) -> Token {
 pub fn scan(source: &Vec<char>, debug: bool) -> Vec<Token> {
     let mut offset = 0;
     let mut tokens = vec![];
-    let mut line: usize = 1;
+    let mut line: u32 = 1;
     loop {
         if offset >= source.len() {
             break tokens;

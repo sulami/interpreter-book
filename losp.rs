@@ -16,8 +16,8 @@ fn report_error(error_token: &Token, source: &Vec<char>) {
              error_token);
 }
 
-fn emit_byte(chunk: &mut Chunk, opcode: OpCode) {
-    chunk.code.append(&mut vec![opcode]);
+fn emit_byte(chunk: &mut Chunk, op_code: OpCode, line: u32) {
+    chunk.write_code(op_code, line);
 }
 
 fn consume_token(token: &Token, expected_type: &TokenType, source: &Vec<char>) {
@@ -47,9 +47,8 @@ fn compile(source: String) -> Option<Chunk> {
         consume_token(&token, &token.token_type, &source_chars);
     };
     chunk.write_constant(Value::Float(1.2));
-    chunk.lines.append(&mut vec![1, 2]);
-    emit_byte(&mut chunk, OpCode::Constant(0));
-    emit_byte(&mut chunk, OpCode::Return);
+    emit_byte(&mut chunk, OpCode::Constant(0), 1);
+    emit_byte(&mut chunk, OpCode::Return, 2);
     if had_error {
         None
     } else {

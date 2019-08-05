@@ -88,7 +88,12 @@ impl Chunk {
         self.constants.append(&mut vec![value]);
     }
 
-    pub fn write_line(&mut self, line: u32) {
+    pub fn write_code(&mut self, op_code: OpCode, line: u32) {
+        self.code.append(&mut vec![op_code]);
+        self.write_line(line);
+    }
+
+    fn write_line(&mut self, line: u32) {
         self.lines.append(&mut vec![line]);
     }
 

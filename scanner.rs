@@ -28,6 +28,7 @@ enum TokenType {
 #[derive(Debug)]
 pub struct Token {
     token_type: TokenType,
+    line: usize,
     start: usize,
     length: usize,
 }
@@ -152,6 +153,7 @@ fn scan_token(source: &Vec<char>, offset: usize, line: &mut usize) -> Token {
     };
     Token {
         token_type: token_type,
+        line: *line,
         start: start,
         length: length,
     }
@@ -169,7 +171,7 @@ pub fn scan(source: &Vec<char>, debug: bool) -> Vec<Token> {
         if debug {
             println!("{:?} {} {} {} {}",
                      token.token_type,
-                     line,
+                     token.line,
                      token.length,
                      token.start,
                      token.get_token(&source));

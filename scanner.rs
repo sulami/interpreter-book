@@ -25,10 +25,12 @@ pub enum TokenType {
     Error(ScanError),
 }
 
+pub type Line = u32;
+
 #[derive(Debug)]
 pub struct Token {
     pub token_type: TokenType,
-    pub line: u32,
+    pub line: Line,
     start: usize,
     length: usize,
 }
@@ -69,14 +71,14 @@ fn is_symbol(c: char) -> bool {
         || c == '='
 }
 
-fn advance(source: &Vec<char>, offset: &mut usize, line: &mut u32) {
+fn advance(source: &Vec<char>, offset: &mut usize, line: &mut Line) {
     if source[*offset] == '\n' {
         *line += 1;
     }
     *offset += 1;
 }
 
-fn scan_token(source: &Vec<char>, offset: usize, line: &mut u32) -> Token {
+fn scan_token(source: &Vec<char>, offset: usize, line: &mut Line) -> Token {
     let mut start = offset;
     while start < source.len() - 1 && source[start].is_whitespace() {
         advance(source, &mut start, line);
@@ -162,7 +164,7 @@ fn scan_token(source: &Vec<char>, offset: usize, line: &mut u32) -> Token {
 pub fn scan(source: &Vec<char>, debug: bool) -> Vec<Token> {
     let mut offset = 0;
     let mut tokens = vec![];
-    let mut line: u32 = 1;
+    let mut line: Line = 1;
     loop {
         if offset >= source.len() {
             break tokens;

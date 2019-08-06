@@ -64,19 +64,15 @@ pub enum OpCode {
     Return,
 }
 
+pub type Line = u32;
+
 pub struct Chunk {
     pub code: Vec<OpCode>,
-    pub lines: Vec<u32>,
+    pub lines: Vec<Line>,
     pub constants: ValueArray,
 }
 
 impl Chunk {
-    fn read_constant(&self, index: usize) -> Value {
-        match self.constants[index] {
-            Value::Float(n) => Value::Float(n)
-        }
-    }
-
     #[allow(dead_code)]
     pub fn disassemble(&self) {
         for i in 0..self.code.len() {
@@ -84,16 +80,23 @@ impl Chunk {
         }
     }
 
-    pub fn write_constant(&mut self, value: Value) {
-        self.constants.append(&mut vec![value]);
+    fn read_constant(&self, index: usize) -> Value {
+        match self.constants[index] {
+            Value::Float(n) => Value::Float(n)
+        }
     }
 
-    pub fn write_code(&mut self, op_code: OpCode, line: u32) {
+    pub fn write_constant(&mut self, value: Value) -> usize {
+        self.constants.append(&mut vec![value]);
+        self.constants.len() - 1
+    }
+
+    pub fn write_code(&mut self, op_code: OpCode, line: Line) {
         self.code.append(&mut vec![op_code]);
         self.write_line(line);
     }
 
-    fn write_line(&mut self, line: u32) {
+    fn write_line(&mut self, line: Line) {
         self.lines.append(&mut vec![line]);
     }
 

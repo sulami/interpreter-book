@@ -27,7 +27,10 @@ fn expression(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source
     match token.token_type {
         TokenType::OpenParenthesis => {
             *offset += 1;
-            expression(tokens, offset, chunk, source);
+            while tokens[*offset].token_type != TokenType::CloseParenthesis {
+                // FIXME this can lead to overflows
+                expression(tokens, offset, chunk, source);
+            }
             consume_token(tokens, offset, chunk, &TokenType::CloseParenthesis, source);
         }
         TokenType::Number => {

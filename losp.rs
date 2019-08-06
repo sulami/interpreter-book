@@ -7,29 +7,56 @@ use std::fs::File;
 mod scanner;
 mod vm;
 
-use scanner::{Token, TokenType};
+use scanner::{Line, Token, TokenType};
 use vm::{Chunk, InterpretResult, OpCode, Value};
 
-fn report_error(error_token: &Token, source: &Vec<char>) {
+type SourceCode = Vec<char>;
+
+fn report_error(error_token: &Token, source: &SourceCode) {
     println!("Error at {}: {:?}",
              error_token.get_token(source),
              error_token);
 }
 
-fn emit_byte(chunk: &mut Chunk, op_code: OpCode, line: u32) {
+fn emit_byte(chunk: &mut Chunk, op_code: OpCode, line: Line) {
     chunk.write_code(op_code, line);
 }
 
-fn consume_token(token: &Token, expected_type: &TokenType, source: &Vec<char>) {
+fn expression(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source: &SourceCode) {
+    let token = &tokens[*offset];
+    match token.token_type {
+        TokenType::OpenParenthesis => {
+            *offset += 1;
+            expression(tokens, offset, chunk, source);
+            consume_token(tokens, offset, chunk, &TokenType::CloseParenthesis, source);
+        }
+        TokenType::Number => {
+            let val: f64 = token.get_token(source).parse().unwrap();
+            let idx = chunk.write_constant(Value::Float(val));
+            chunk.write_code(OpCode::Constant(idx), token.line);
+            *offset += 1;
+        }
+        TokenType::EOF => {
+            *offset += 1;
+        }
+        _ => {
+            report_error(&token, source);
+        }
+    };
+}
+
+fn consume_token(tokens: &Vec<Token>, offset: &mut usize, _chunk: &mut Chunk,
+                 expected_type: &TokenType, source: &SourceCode) {
+    let token = &tokens[*offset];
     if token.token_type == *expected_type {
-        ()
+        *offset += 1;
     } else {
-        report_error(token, source);
+        report_error(&token, source);
     };
 }
 
 fn compile(source: String) -> Option<Chunk> {
-    let source_chars: Vec<char> = source.chars().collect();
+    let source_chars: SourceCode = source.chars().collect();
     let tokens = scanner::scan(&source_chars, false);
     let mut chunk = Chunk{
         code: vec![],
@@ -38,17 +65,18 @@ fn compile(source: String) -> Option<Chunk> {
     };
     let mut panic_mode = false;
     let mut had_error = false;
-    for token in tokens {
+    let mut offset = 0;
+    let token_count = tokens.len();
+    while offset < token_count {
+        let token = &tokens[offset];
         if token.is_error() && !panic_mode {
             report_error(&token, &source_chars);
             panic_mode = true;
             had_error = true;
         }
-        consume_token(&token, &token.token_type, &source_chars);
-    };
-    chunk.write_constant(Value::Float(1.2));
-    emit_byte(&mut chunk, OpCode::Constant(0), 1);
-    emit_byte(&mut chunk, OpCode::Return, 2);
+        expression(&tokens, &mut offset, &mut chunk, &source_chars);
+    }
+    emit_byte(&mut chunk, OpCode::Return, 99);
     if had_error {
         None
     } else {

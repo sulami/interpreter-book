@@ -53,7 +53,11 @@ impl std::fmt::Display for Value {
 
 impl std::fmt::Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        write!(f, "{}", self)
+        let t = match self {
+            Value::Float(_) => "float: ",
+            _ => "",
+        };
+        write!(f, "{}{}", t, self)
     }
 }
 

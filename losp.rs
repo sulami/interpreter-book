@@ -60,9 +60,14 @@ fn expression(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source
         TokenType::EOF => {
             *offset += 1;
         }
+        TokenType::Symbol => {
+            println!("parsed a symbol: {}", token.get_token(source));
+            *offset += 1;
+        }
         _ => {
             report_error(&token, source,
                          "Attempting to parse unsupported token type");
+            *offset += 1;
         }
     };
 }

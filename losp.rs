@@ -12,10 +12,11 @@ use vm::{Chunk, InterpretResult, OpCode, Value};
 
 type SourceCode = Vec<char>;
 
-fn report_error(error_token: &Token, source: &SourceCode) {
-    println!("Error at {}: {:?}",
+fn report_error(error_token: &Token, source: &SourceCode, message: &str) {
+    println!("Error at {}: {:?}: {}",
              error_token.get_token(source),
-             error_token);
+             error_token,
+             message);
 }
 
 fn emit_byte(chunk: &mut Chunk, op_code: OpCode, line: Line) {
@@ -44,6 +45,12 @@ fn expression(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source
             chunk.write_code(OpCode::Constant(idx), token.line);
             *offset += 1;
         }
+        TokenType::Int => {
+            let val: i64 = token.get_token(source).parse().unwrap();
+            let idx = chunk.write_constant(Value::Int(val));
+            chunk.write_code(OpCode::Constant(idx), token.line);
+            *offset += 1;
+        }
         TokenType::Float => {
             let val: f64 = token.get_token(source).parse().unwrap();
             let idx = chunk.write_constant(Value::Float(val));
@@ -54,7 +61,8 @@ fn expression(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source
             *offset += 1;
         }
         _ => {
-            report_error(&token, source);
+            report_error(&token, source,
+                         "Attempting to parse unsupported token type");
         }
     };
 }
@@ -65,7 +73,7 @@ fn consume_token(tokens: &Vec<Token>, offset: &mut usize, _chunk: &mut Chunk,
     if token.token_type == *expected_type {
         *offset += 1;
     } else {
-        report_error(&token, source);
+        report_error(&token, source, "Did not find expected token type");
     };
 }
 
@@ -84,7 +92,7 @@ fn compile(source: String) -> Option<Chunk> {
     while offset < token_count {
         let token = &tokens[offset];
         if token.is_error() && !panic_mode {
-            report_error(&token, &source_chars);
+            report_error(&token, &source_chars, "Lexing error");
             panic_mode = true;
             had_error = true;
         }

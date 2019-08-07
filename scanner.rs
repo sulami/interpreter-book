@@ -12,7 +12,7 @@ pub enum TokenType {
     OpenBracket, CloseBracket,
     OpenBrace, CloseBrace,
     // literals
-    Nil, Bool, Float, String,
+    Nil, Bool, Int, Float, String,
     // special syntax
     Quote,
     // keywords
@@ -136,11 +136,25 @@ fn scan_token(source: &Vec<char>, offset: usize, line: &mut Line) -> Token {
                 (TokenType::EOF, 1)
             } else if is_number(source[start]) {
                 let mut token_length = 1;
-                while start + token_length < source.len()
-                    && is_number(source[start + token_length]) {
-                        token_length += 1;
+                let mut is_float = false;
+                loop {
+                    if source.len() <= start + token_length {
+                        break
+                    };
+                    let c = source[start + token_length];
+                    if !is_number(c) {
+                        break
                     }
-                (TokenType::Float, token_length)
+                    if c == '.' {
+                        is_float = true;
+                    }
+                    token_length += 1;
+                }
+                if is_float {
+                    (TokenType::Float, token_length)
+                } else {
+                    (TokenType::Int, token_length)
+                }
             } else if is_symbol(source[start]) {
                 let mut token_length = 1;
                 while start + token_length < source.len()

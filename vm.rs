@@ -1,12 +1,14 @@
 pub enum Value {
     Nil,
     Bool(bool),
+    Int(i64),
     Float(f64),
 }
 
 impl Value {
     fn negate(&self) -> Option<Value> {
         match self {
+            Value::Int(x) => Some(Value::Int(-x)),
             Value::Float(x) => Some(Value::Float(-x)),
             _ => None,
         }
@@ -14,28 +16,52 @@ impl Value {
 
     fn add(&self, other: Value) -> Option<Value> {
         match (self, other) {
+            // float & float -> float
             (Value::Float(a), Value::Float(b)) => Some(Value::Float(a+b)),
+            // float & int -> float
+            (Value::Int(a), Value::Float(b)) => Some(Value::Float(*a as f64 + b)),
+            (Value::Float(a), Value::Int(b)) => Some(Value::Float(a + b as f64)),
+            // int & int -> int
+            (Value::Int(a), Value::Int(b)) => Some(Value::Int(a+b)),
             _ => None,
         }
     }
 
     fn subtract(&self, other: Value) -> Option<Value> {
         match (self, other) {
+            // float & float -> float
             (Value::Float(a), Value::Float(b)) => Some(Value::Float(a-b)),
+            // float & int -> float
+            (Value::Int(a), Value::Float(b)) => Some(Value::Float(*a as f64 - b)),
+            (Value::Float(a), Value::Int(b)) => Some(Value::Float(a - b as f64)),
+            // int & int -> int
+            (Value::Int(a), Value::Int(b)) => Some(Value::Int(a-b)),
             _ => None,
         }
     }
 
     fn multiply(&self, other: Value) -> Option<Value> {
         match (self, other) {
+            // float & float -> float
             (Value::Float(a), Value::Float(b)) => Some(Value::Float(a*b)),
+            // float & int -> float
+            (Value::Int(a), Value::Float(b)) => Some(Value::Float(*a as f64 * b)),
+            (Value::Float(a), Value::Int(b)) => Some(Value::Float(a * b as f64)),
+            // int & int -> int
+            (Value::Int(a), Value::Int(b)) => Some(Value::Int(a*b)),
             _ => None,
         }
     }
 
     fn divide(&self, other: Value) -> Option<Value> {
         match (self, other) {
+            // float & float -> float
             (Value::Float(a), Value::Float(b)) => Some(Value::Float(a/b)),
+            // float & int -> float
+            (Value::Int(a), Value::Float(b)) => Some(Value::Float(*a as f64 / b)),
+            (Value::Float(a), Value::Int(b)) => Some(Value::Float(a / b as f64)),
+            // int & int -> also float
+            (Value::Int(a), Value::Int(b)) => Some(Value::Float(*a as f64 / b as f64)),
             _ => None,
         }
     }
@@ -46,6 +72,7 @@ impl std::fmt::Display for Value {
         match self {
             Value::Nil => write!(f, "nil"),
             Value::Bool(b) => write!(f, "{}", b),
+            Value::Int(x) => write!(f, "{}", x),
             Value::Float(x) => write!(f, "{}", x),
         }
     }
@@ -54,6 +81,7 @@ impl std::fmt::Display for Value {
 impl std::fmt::Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         let t = match self {
+            Value::Int(_) => "int: ",
             Value::Float(_) => "float: ",
             _ => "",
         };
@@ -95,6 +123,7 @@ impl Chunk {
         match self.constants[index] {
             Value::Nil => Value::Nil,
             Value::Bool(b) => Value::Bool(b),
+            Value::Int(n) => Value::Int(n),
             Value::Float(n) => Value::Float(n),
         }
     }

@@ -57,11 +57,19 @@ fn expression(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source
             chunk.write_code(OpCode::Constant(idx), token.line);
             *offset += 1;
         }
-        TokenType::EOF => {
+        TokenType::Keyword => {
+            println!("parsed a keyword: {}", token.get_token(source));
+            *offset += 1;
+        }
+        TokenType::String => {
+            println!("parsed a string: {}", token.get_token(source));
             *offset += 1;
         }
         TokenType::Symbol => {
             println!("parsed a symbol: {}", token.get_token(source));
+            *offset += 1;
+        }
+        TokenType::EOF => {
             *offset += 1;
         }
         _ => {

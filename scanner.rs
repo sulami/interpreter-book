@@ -72,6 +72,9 @@ fn is_symbol(c: char) -> bool {
 }
 
 fn advance(source: &Vec<char>, offset: &mut usize, line: &mut Line) {
+    if *offset == source.len() {
+        return
+    }
     if source[*offset] == '\n' {
         *line += 1;
     }
@@ -104,24 +107,23 @@ fn skip_comments(source: &Vec<char>, start: &mut usize, line: &mut Line) {
 fn scan_string(source: &Vec<char>, start: &mut usize, line: &mut Line) -> (TokenType, usize) {
     let mut string_end = *start;
     loop {
+        advance(source, &mut string_end, line);
         let string_length = string_end - *start;
         if source[string_end] == '"' {
             break (TokenType::String, string_length + 1)
         }
         if source.len() <= string_end {
-            break (TokenType::Error(ScanError::UnterminatedString),
-                   string_length)
+            break (TokenType::Error(ScanError::UnterminatedString), string_length)
         }
-        advance(source, &mut string_end, line);
     }
 }
 
-fn scan_keyword(source: &Vec<char>, start: &mut usize) -> (TokenType, usize) {
-    let mut keyword_length = 1;
-    while *start + keyword_length < source.len()
-        && is_symbol(source[*start + keyword_length]) {
-            keyword_length += 1;
-        }
+fn scan_keyword(source: &Vec<char>, start: &mut usize, line: &mut Line) -> (TokenType, usize) {
+    let mut keyword_end = *start;
+    while is_symbol(source[keyword_end]) {
+        advance(source, &mut keyword_end, line);
+    }
+    let keyword_length = keyword_end - *start;
     if keyword_length == 1 {
         (TokenType::Error(ScanError::EmptyKeyword), keyword_length)
     } else {
@@ -146,7 +148,6 @@ fn scan_number(source: &Vec<char>, start: &mut usize) -> (TokenType, usize) {
         token_length += 1;
     }
     if 1 == token_length && '-' == source[*start + token_length] {
-        // a lonely - is a symbol
         (TokenType::Symbol, token_length)
     } else if is_float {
         (TokenType::Float, token_length)
@@ -155,13 +156,13 @@ fn scan_number(source: &Vec<char>, start: &mut usize) -> (TokenType, usize) {
     }
 }
 
-fn scan_symbol(source: &Vec<char>, start: &mut usize) -> (TokenType, usize) {
-    let mut token_length = 1;
-    while *start + token_length < source.len()
-        && is_symbol(source[*start + token_length]) {
-            token_length += 1;
-        }
-    match source[*start..*start+token_length] {
+fn scan_symbol(source: &Vec<char>, start: &mut usize, line: &mut Line) -> (TokenType, usize) {
+    let mut symbol_end = *start;
+    while is_symbol(source[symbol_end]) {
+        advance(source, &mut symbol_end, line);
+    }
+    let token_length = symbol_end - *start;
+    match source[*start..symbol_end] {
         ['n','i','l']=> (TokenType::Nil, token_length),
         ['t','r','u','e']=> (TokenType::Bool, token_length),
         ['f','a','l','s','e']=> (TokenType::Bool, token_length),
@@ -169,7 +170,7 @@ fn scan_symbol(source: &Vec<char>, start: &mut usize) -> (TokenType, usize) {
     }
 }
 
-fn scan_dash(source: &Vec<char>, start: &mut usize) -> (TokenType, usize) {
+fn scan_dash(source: &Vec<char>, start: &mut usize, line: &mut Line) -> (TokenType, usize) {
     let next_char = peek(source, *start);
     match next_char {
         None => (TokenType::Symbol, 1),
@@ -179,7 +180,7 @@ fn scan_dash(source: &Vec<char>, start: &mut usize) -> (TokenType, usize) {
             } else if c.is_numeric() {
                 scan_number(source, start)
             } else {
-                scan_symbol(source, start)
+                scan_symbol(source, start, line)
             }
         }
     }
@@ -198,11 +199,11 @@ fn scan_token(source: &Vec<char>, offset: usize, line: &mut Line) -> Token {
         '}' => (TokenType::CloseBrace, 1),
         '\'' => (TokenType::Quote, 1),
         '"' => scan_string(source, &mut start, line),
-        ':' => scan_keyword(source, &mut start),
-        '-' => scan_dash(source, &mut start),
+        ':' => scan_keyword(source, &mut start, line),
+        '-' => scan_dash(source, &mut start, line),
         _ if start == source.len() - 1 => (TokenType::EOF, 1),
         _ if is_number(source[start]) => scan_number(source, &mut start),
-        _ if is_symbol(source[start]) => scan_symbol(source, &mut start),
+        _ if is_symbol(source[start]) => scan_symbol(source, &mut start, line),
         _ => (TokenType::Error(ScanError::RanOff), 1),
     };
     Token {

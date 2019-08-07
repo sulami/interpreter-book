@@ -12,7 +12,7 @@ pub enum TokenType {
     OpenBracket, CloseBracket,
     OpenBrace, CloseBrace,
     // literals
-    String, Number,
+    Nil, Bool, Float, String,
     // special syntax
     Quote,
     // keywords
@@ -129,7 +129,7 @@ fn scan_token(source: &Vec<char>, offset: usize, line: &mut Line) -> Token {
                 && is_number(source[start + token_length]) {
                     token_length += 1;
                 }
-            (TokenType::Number, token_length)
+            (TokenType::Float, token_length)
         }
         _ => {
             if start == source.len() - 1 {
@@ -140,14 +140,19 @@ fn scan_token(source: &Vec<char>, offset: usize, line: &mut Line) -> Token {
                     && is_number(source[start + token_length]) {
                         token_length += 1;
                     }
-                (TokenType::Number, token_length)
+                (TokenType::Float, token_length)
             } else if is_symbol(source[start]) {
                 let mut token_length = 1;
                 while start + token_length < source.len()
                     && is_symbol(source[start + token_length]) {
                         token_length += 1;
                     }
-                (TokenType::Symbol, token_length)
+                match source[start..start+token_length] {
+                    ['n','i','l']=> (TokenType::Nil, token_length),
+                    ['t','r','u','e']=> (TokenType::Bool, token_length),
+                    ['f','a','l','s','e']=> (TokenType::Bool, token_length),
+                    _ => (TokenType::Symbol, token_length),
+                }
             } else {
                 (TokenType::Error(ScanError::RanOff), 1)
             }

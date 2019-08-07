@@ -33,7 +33,18 @@ fn expression(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source
             }
             consume_token(tokens, offset, chunk, &TokenType::CloseParenthesis, source);
         }
-        TokenType::Number => {
+        TokenType::Nil => {
+            let idx = chunk.write_constant(Value::Nil);
+            chunk.write_code(OpCode::Constant(idx), token.line);
+            *offset += 1;
+        }
+        TokenType::Bool => {
+            let val: bool = token.get_token(source) == "true";
+            let idx = chunk.write_constant(Value::Bool(val));
+            chunk.write_code(OpCode::Constant(idx), token.line);
+            *offset += 1;
+        }
+        TokenType::Float => {
             let val: f64 = token.get_token(source).parse().unwrap();
             let idx = chunk.write_constant(Value::Float(val));
             chunk.write_code(OpCode::Constant(idx), token.line);
@@ -87,7 +98,7 @@ fn compile(source: String) -> Option<Chunk> {
     }
 }
 
-fn interpret(source: String) -> InterpretResult {
+fn interpret<'a>(source: String) -> InterpretResult<'a> {
     match compile(source) {
         None => vm::InterpretResult::CompileError,
         Some(byte_code) => vm::init_vm(byte_code).interpret(true)
@@ -118,7 +129,7 @@ fn run_file(path: &String) -> Result<()> {
     match interpret(source) {
         vm::InterpretResult::OK => Ok(()),
         vm::InterpretResult::CompileError => std::process::exit(65),
-        vm::InterpretResult::RuntimeError => std::process::exit(70),
+        vm::InterpretResult::RuntimeError(_) => std::process::exit(70),
     }
 }
 

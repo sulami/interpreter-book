@@ -123,54 +123,43 @@ fn scan_token(source: &Vec<char>, offset: usize, line: &mut Line) -> Token {
                 (TokenType::Keyword, keyword_length)
             }
         }
-        '-' => {
+        _ if start == source.len() - 1 => (TokenType::EOF, 1),
+        _ if is_number(source[start]) || '-' == source[start] => {
+            let mut token_length = 1;
+            let mut is_float = false;
+            loop {
+                if source.len() <= start + token_length {
+                    break
+                };
+                let c = source[start + token_length];
+                if !is_number(c) {
+                    break
+                }
+                if c == '.' {
+                    is_float = true;
+                }
+                token_length += 1;
+            }
+            if is_float {
+                (TokenType::Float, token_length)
+            } else {
+                (TokenType::Int, token_length)
+            }
+        }
+        _ if is_symbol(source[start]) => {
             let mut token_length = 1;
             while start + token_length < source.len()
-                && is_number(source[start + token_length]) {
+                && is_symbol(source[start + token_length]) {
                     token_length += 1;
                 }
-            (TokenType::Float, token_length)
-        }
-        _ => {
-            if start == source.len() - 1 {
-                (TokenType::EOF, 1)
-            } else if is_number(source[start]) {
-                let mut token_length = 1;
-                let mut is_float = false;
-                loop {
-                    if source.len() <= start + token_length {
-                        break
-                    };
-                    let c = source[start + token_length];
-                    if !is_number(c) {
-                        break
-                    }
-                    if c == '.' {
-                        is_float = true;
-                    }
-                    token_length += 1;
-                }
-                if is_float {
-                    (TokenType::Float, token_length)
-                } else {
-                    (TokenType::Int, token_length)
-                }
-            } else if is_symbol(source[start]) {
-                let mut token_length = 1;
-                while start + token_length < source.len()
-                    && is_symbol(source[start + token_length]) {
-                        token_length += 1;
-                    }
-                match source[start..start+token_length] {
-                    ['n','i','l']=> (TokenType::Nil, token_length),
-                    ['t','r','u','e']=> (TokenType::Bool, token_length),
-                    ['f','a','l','s','e']=> (TokenType::Bool, token_length),
-                    _ => (TokenType::Symbol, token_length),
-                }
-            } else {
-                (TokenType::Error(ScanError::RanOff), 1)
+            match source[start..start+token_length] {
+                ['n','i','l']=> (TokenType::Nil, token_length),
+                ['t','r','u','e']=> (TokenType::Bool, token_length),
+                ['f','a','l','s','e']=> (TokenType::Bool, token_length),
+                _ => (TokenType::Symbol, token_length),
             }
-        },
+        }
+        _ => (TokenType::Error(ScanError::RanOff), 1),
     };
     Token {
         token_type: token_type,

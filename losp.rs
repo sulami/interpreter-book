@@ -13,9 +13,9 @@ use vm::{Chunk, InterpretResult, OpCode, Value};
 type SourceCode = Vec<char>;
 
 fn report_error(error_token: &Token, source: &SourceCode, message: &str) {
-    println!("Error at {}: {:?}: {}",
+    println!("Error at {} (line {}) : {}",
              error_token.get_token(source),
-             error_token,
+             error_token.line,
              message);
 }
 

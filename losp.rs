@@ -173,7 +173,11 @@ fn repl() -> Result<()> {
             println!("");
             break;
         }
-        interpret(input);
+        match interpret(input) {
+            InterpretResult::CompileError => println!("Compile error"),
+            InterpretResult::RuntimeError(msg) => println!("{}", msg),
+            _ => (),
+        }
     }
     Ok(())
 }

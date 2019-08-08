@@ -4,6 +4,7 @@ pub enum Value {
     Bool(bool),
     Int(i64),
     Float(f64),
+    String(&'static str), // XXX this is going to become a pain for GC
 }
 
 impl Value {
@@ -106,6 +107,7 @@ impl std::fmt::Display for Value {
             Value::Bool(b) => write!(f, "{}", b),
             Value::Int(x) => write!(f, "{}", x),
             Value::Float(x) => write!(f, "{}", x),
+            Value::String(s) => write!(f, "\"{}\"", s),
         }
     }
 }
@@ -161,6 +163,7 @@ impl Chunk {
             Value::Bool(b) => Value::Bool(b),
             Value::Int(n) => Value::Int(n),
             Value::Float(n) => Value::Float(n),
+            Value::String(s) => Value::String(s),
         }
     }
 

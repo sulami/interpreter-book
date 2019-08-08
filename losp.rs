@@ -37,6 +37,17 @@ fn function(token: &Token, chunk: &mut Chunk, source: &SourceCode) {
         "*" => chunk.write_code(OpCode::Multiply, token.line),
         "/" => chunk.write_code(OpCode::Divide, token.line),
         "not" => chunk.write_code(OpCode::Not, token.line),
+        "=" => chunk.write_code(OpCode::Equal, token.line),
+        ">" => chunk.write_code(OpCode::GreaterThan, token.line),
+        ">=" => {
+            chunk.write_code(OpCode::LessThan, token.line);
+            chunk.write_code(OpCode::Not, token.line);
+        }
+        "<" => chunk.write_code(OpCode::LessThan, token.line),
+        "<=" => {
+            chunk.write_code(OpCode::GreaterThan, token.line);
+            chunk.write_code(OpCode::Not, token.line);
+        }
         _ => report_error(token, source, format!("Unsupported function: {}", name).as_str()),
     }
 }

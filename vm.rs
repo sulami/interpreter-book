@@ -1,3 +1,4 @@
+#[derive(PartialEq)]
 pub enum Value {
     Nil,
     Bool(bool),
@@ -72,6 +73,30 @@ impl Value {
             _ => None,
         }
     }
+
+    fn equal(&self, other: Value) -> Option<Value> {
+        Some(Value::Bool(*self == other))
+    }
+
+    fn greater_than(&self, other: Value) -> Option<Value> {
+        match (self, other) {
+            (Value::Int(a), Value::Int(b)) => Some(Value::Bool(*a > b)),
+            (Value::Int(a), Value::Float(b)) => Some(Value::Bool((*a as f64) > b)),
+            (Value::Float(a), Value::Int(b)) => Some(Value::Bool(*a > b as f64)),
+            (Value::Float(a), Value::Float(b)) => Some(Value::Bool(*a > b)),
+            _ => None,
+        }
+    }
+
+    fn less_than(&self, other: Value) -> Option<Value> {
+        match (self, other) {
+            (Value::Int(a), Value::Int(b)) => Some(Value::Bool(*a < b)),
+            (Value::Int(a), Value::Float(b)) => Some(Value::Bool((*a as f64) < b)),
+            (Value::Float(a), Value::Int(b)) => Some(Value::Bool(*a < b as f64)),
+            (Value::Float(a), Value::Float(b)) => Some(Value::Bool(*a < b)),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for Value {
@@ -108,6 +133,9 @@ pub enum OpCode {
     Multiply,
     Divide,
     Not,
+    Equal,
+    GreaterThan,
+    LessThan,
     Return,
 }
 
@@ -165,6 +193,9 @@ impl Chunk {
             OpCode::Multiply => println!("MULTIPLY"),
             OpCode::Divide => println!("DIVIDE"),
             OpCode::Not => println!("NOT"),
+            OpCode::Equal => println!("EQUAL"),
+            OpCode::GreaterThan => println!("GT"),
+            OpCode::LessThan => println!("LT"),
             OpCode::Return => println!("RETURN"),
         }
     }
@@ -263,6 +294,36 @@ impl VM {
                             None => break InterpretResult::RuntimeError("Type error"),
                         }
                         None => break InterpretResult::RuntimeError("Empty stack"),
+                    }
+                }
+                OpCode::Equal => {
+                    match (self.stack.pop(), self.stack.pop()) {
+                        (Some(a), Some(b)) => match b.equal(a) {
+                            Some(v) => self.stack.push(v),
+                            None => break InterpretResult::RuntimeError("Type error"),
+                        }
+                        (_, None) => break InterpretResult::RuntimeError("Empty stack"),
+                        (None, _) => break InterpretResult::RuntimeError("Empty stack"),
+                    }
+                }
+                OpCode::GreaterThan => {
+                    match (self.stack.pop(), self.stack.pop()) {
+                        (Some(a), Some(b)) => match b.greater_than(a) {
+                            Some(v) => self.stack.push(v),
+                            None => break InterpretResult::RuntimeError("Type error"),
+                        }
+                        (_, None) => break InterpretResult::RuntimeError("Empty stack"),
+                        (None, _) => break InterpretResult::RuntimeError("Empty stack"),
+                    }
+                }
+                OpCode::LessThan => {
+                    match (self.stack.pop(), self.stack.pop()) {
+                        (Some(a), Some(b)) => match b.less_than(a) {
+                            Some(v) => self.stack.push(v),
+                            None => break InterpretResult::RuntimeError("Type error"),
+                        }
+                        (_, None) => break InterpretResult::RuntimeError("Empty stack"),
+                        (None, _) => break InterpretResult::RuntimeError("Empty stack"),
                     }
                 }
                 OpCode::Return => {

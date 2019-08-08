@@ -47,6 +47,7 @@ fn sexp(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source: &Sou
     if token.token_type == TokenType::Symbol {
         advance(tokens, offset);
         while tokens[*offset].token_type != TokenType::CloseParenthesis {
+            // TODO count number of expressions and pop this many as arguments
             expression(tokens, offset, chunk, source);
         }
         function(token, chunk, source);

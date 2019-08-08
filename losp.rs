@@ -23,17 +23,43 @@ fn emit_byte(chunk: &mut Chunk, op_code: OpCode, line: Line) {
     chunk.write_code(op_code, line);
 }
 
+fn advance(tokens: &Vec<Token>, offset: &mut usize) {
+    if *offset < tokens.len() {
+       *offset += 1;
+    }
+}
+
+fn function(token: &Token, chunk: &mut Chunk, source: &SourceCode) {
+    let name = token.get_token(source);
+    match name.as_str() {
+        "+" => chunk.write_code(OpCode::Add, token.line),
+        "-" => chunk.write_code(OpCode::Subtract, token.line),
+        "*" => chunk.write_code(OpCode::Multiply, token.line),
+        "/" => chunk.write_code(OpCode::Divide, token.line),
+        "not" => chunk.write_code(OpCode::Not, token.line),
+        _ => report_error(token, source, format!("Unsupported function: {}", name).as_str()),
+    }
+}
+
+fn sexp(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source: &SourceCode) {
+    advance(tokens, offset);
+    let token = &tokens[*offset];
+    if token.token_type == TokenType::Symbol {
+        advance(tokens, offset);
+        while tokens[*offset].token_type != TokenType::CloseParenthesis {
+            expression(tokens, offset, chunk, source);
+        }
+        function(token, chunk, source);
+        consume_token(tokens, offset, chunk, &TokenType::CloseParenthesis, source);
+    } else {
+        report_error(token, source, "Function name must be a symbol")
+    }
+}
+
 fn expression(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source: &SourceCode) {
     let token = &tokens[*offset];
     match token.token_type {
-        TokenType::OpenParenthesis => {
-            *offset += 1;
-            while tokens[*offset].token_type != TokenType::CloseParenthesis {
-                // FIXME this can lead to overflows
-                expression(tokens, offset, chunk, source);
-            }
-            consume_token(tokens, offset, chunk, &TokenType::CloseParenthesis, source);
-        }
+        TokenType::OpenParenthesis => sexp(tokens, offset, chunk, source),
         TokenType::Nil => {
             let idx = chunk.write_constant(Value::Nil);
             chunk.write_code(OpCode::Constant(idx), token.line);
@@ -73,8 +99,7 @@ fn expression(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source
             *offset += 1;
         }
         _ => {
-            report_error(&token, source,
-                         "Attempting to parse unsupported token type");
+            report_error(&token, source, "Token type not implemented");
             *offset += 1;
         }
     };

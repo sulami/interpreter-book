@@ -107,20 +107,23 @@ impl std::fmt::Display for Value {
             Value::Bool(b) => write!(f, "{}", b),
             Value::Int(x) => write!(f, "{}", x),
             Value::Float(x) => write!(f, "{}", x),
-            Value::String(s) => write!(f, "\"{}\"", s),
+            Value::String(s) => write!(f, "{}", s),
         }
     }
 }
 
 impl std::fmt::Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        let t = match self {
-            Value::Int(_) => "int: ",
-            Value::Float(_) => "float: ",
-            _ => "",
-        };
-        write!(f, "{}{}", t, self)
+        match self {
+            Value::String(s) => write!(f, "\"{}\"", s),
+            _ => write!(f, "{}", self),
+        }
     }
+}
+
+// hashtable string -> value
+fn f() {
+    let variables: HashMap<String, Value> = HashMap::new();
 }
 
 type ValueArray = Vec<Value>;

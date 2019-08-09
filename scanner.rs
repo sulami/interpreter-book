@@ -44,9 +44,14 @@ impl Token {
     }
 
     pub fn get_token(&self, source: &Vec<char>) -> String {
-        source[self.start..self.start+self.length]
-            .into_iter()
-            .collect()
+        match self.token_type {
+            TokenType::String => source[self.start+1..self.start+self.length - 1]
+                .into_iter()
+                .collect(),
+            _ => source[self.start..self.start+self.length]
+                .into_iter()
+                .collect(),
+        }
     }
 }
 

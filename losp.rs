@@ -100,7 +100,9 @@ fn expression(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source
             *offset += 1;
         }
         TokenType::String => {
-            println!("parsed a string: {}", token.get_token(source));
+            let val = token.get_token(source);
+            let idx = chunk.write_constant(Value::String(val));
+            chunk.write_code(OpCode::Constant(idx), token.line);
             *offset += 1;
         }
         TokenType::Symbol => {

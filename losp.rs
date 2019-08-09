@@ -48,6 +48,7 @@ fn function(token: &Token, chunk: &mut Chunk, source: &SourceCode) {
             chunk.write_code(OpCode::GreaterThan, token.line);
             chunk.write_code(OpCode::Not, token.line);
         }
+        "print" => chunk.write_code(OpCode::Print, token.line),
         _ => report_error(token, source, format!("Unsupported function: {}", name).as_str()),
     }
 }

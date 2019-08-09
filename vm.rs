@@ -4,7 +4,7 @@ pub enum Value {
     Bool(bool),
     Int(i64),
     Float(f64),
-    String(&'static str), // XXX this is going to become a pain for GC
+    String(String),
 }
 
 impl Value {
@@ -158,12 +158,12 @@ impl Chunk {
     }
 
     fn read_constant(&self, index: usize) -> Value {
-        match self.constants[index] {
+        match &self.constants[index] {
             Value::Nil => Value::Nil,
-            Value::Bool(b) => Value::Bool(b),
-            Value::Int(n) => Value::Int(n),
-            Value::Float(n) => Value::Float(n),
-            Value::String(s) => Value::String(s),
+            Value::Bool(b) => Value::Bool(*b),
+            Value::Int(n) => Value::Int(*n),
+            Value::Float(n) => Value::Float(*n),
+            Value::String(s) => Value::String(String::from(s)),
         }
     }
 

@@ -7,6 +7,7 @@ pub enum Value {
     Int(i64),
     Float(f64),
     String(String),
+    Symbol(String),
 }
 
 impl Value {
@@ -110,6 +111,7 @@ impl std::fmt::Display for Value {
             Value::Int(x) => write!(f, "{}", x),
             Value::Float(x) => write!(f, "{}", x),
             Value::String(s) => write!(f, "{}", s),
+            Value::Symbol(s) => write!(f, "{}", s),
         }
     }
 }
@@ -171,6 +173,7 @@ impl Chunk {
             Value::Int(n) => Value::Int(*n),
             Value::Float(n) => Value::Float(*n),
             Value::String(s) => Value::String(String::from(s)),
+            Value::Symbol(s) => Value::Symbol(String::from(s)),
         }
     }
 

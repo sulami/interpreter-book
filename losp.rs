@@ -144,12 +144,20 @@ fn compile(source: String) -> Option<Chunk> {
     let token_count = tokens.len();
     while offset < token_count {
         let token = &tokens[offset];
-        if token.is_error() && !panic_mode {
+        if panic_mode {
+            if token.token_type == TokenType::CloseParenthesis
+                || token.token_type == TokenType::OpenParenthesis
+                || token.token_type == TokenType::EOF {
+                    panic_mode = false;
+            }
+            // TODO this doesn't really sync up yet
+        } else if token.is_error() {
             report_error(&token, &source_chars, "Lexing error");
             panic_mode = true;
             had_error = true;
+        } else {
+            expression(&tokens, &mut offset, &mut chunk, &source_chars);
         }
-        expression(&tokens, &mut offset, &mut chunk, &source_chars);
     }
     emit_byte(&mut chunk, OpCode::Return, 99);
     if had_error {

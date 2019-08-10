@@ -242,6 +242,9 @@ impl VM {
             if debug {
                 self.chunk.disassemble_instruction(self.ip);
             }
+            if self.chunk.code.len() - 1 <= self.ip {
+                break InterpretResult::OK;
+            }
             match &self.chunk.code[self.ip] {
                 OpCode::Constant(ptr) => {
                     self.stack.push(self.chunk.read_constant(*ptr));

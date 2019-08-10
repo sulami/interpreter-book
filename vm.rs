@@ -134,6 +134,7 @@ type ValueArray = Vec<Value>;
 #[derive(Debug)]
 pub enum OpCode {
     Constant(usize),
+    DefineGlobal(usize),
     Negate,
     Add,
     Subtract,
@@ -196,6 +197,7 @@ impl Chunk {
         };
         match instruction {
             OpCode::Constant(ptr) => println!("CONSTANT \t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
+            OpCode::DefineGlobal(ptr) => println!("DEF GLOBAL\t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
             OpCode::Negate => println!("NEGATE"),
             OpCode::Add => println!("ADD"),
             OpCode::Subtract => println!("SUBTRACT"),
@@ -249,6 +251,9 @@ impl VM {
             }
             match &self.chunk.code[self.ip] {
                 OpCode::Constant(ptr) => {
+                    self.stack.push(self.chunk.read_constant(*ptr));
+                }
+                OpCode::DefineGlobal(ptr) => {
                     self.stack.push(self.chunk.read_constant(*ptr));
                 }
                 OpCode::Negate => {

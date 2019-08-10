@@ -345,10 +345,6 @@ impl VM {
                         Some(c) => println!("{}", c),
                         None => break InterpretResult::RuntimeError("Empty stack"),
                     }
-                    if debug {
-                        self.print_state();
-                    }
-                    break InterpretResult::OK
                 }
             };
             self.ip += 1;

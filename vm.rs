@@ -125,11 +125,6 @@ impl std::fmt::Debug for Value {
     }
 }
 
-// hashtable string -> value
-fn f() {
-    let variables: HashMap<String, Value> = HashMap::new();
-}
-
 type ValueArray = Vec<Value>;
 
 #[allow(dead_code)]
@@ -227,6 +222,7 @@ pub struct VM {
     chunk: Chunk,
     ip: usize,
     stack: ValueArray,
+    globals: HashMap<String, Value>,
 }
 
 pub enum InterpretResult<'a> {
@@ -236,11 +232,11 @@ pub enum InterpretResult<'a> {
 }
 
 impl VM {
-    #[allow(dead_code)]
     fn print_state(self) {
         println!("== vm state ==");
         println!("ip: {}", self.ip);
         println!("stack: {:?}", self.stack);
+        println!("globals: {:?}", self.globals);
         println!("{:?}", self.chunk);
     }
 
@@ -250,6 +246,9 @@ impl VM {
                 self.chunk.disassemble_instruction(self.ip);
             }
             if self.chunk.code.len() - 1 <= self.ip {
+                if debug {
+                    self.print_state();
+                }
                 break InterpretResult::OK;
             }
             match &self.chunk.code[self.ip] {
@@ -257,7 +256,13 @@ impl VM {
                     self.stack.push(self.chunk.read_constant(*ptr));
                 }
                 OpCode::DefineGlobal(ptr) => {
-                    self.stack.push(self.chunk.read_constant(*ptr));
+                    match self.stack.pop() {
+                        Some(v) => {
+                            let name = self.chunk.read_constant(*ptr);
+                            self.globals.insert(name.to_string(), v);
+                        },
+                        None => break InterpretResult::RuntimeError("Empty stack"),
+                    }
                 }
                 OpCode::Negate => {
                     match self.stack.pop() {
@@ -370,5 +375,6 @@ pub fn init_vm(chunk: Chunk) -> VM {
         chunk: chunk,
         ip: 0,
         stack: vec![],
+        globals: HashMap::new(),
     }
 }

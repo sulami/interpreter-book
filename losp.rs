@@ -29,7 +29,7 @@ fn advance(tokens: &Vec<Token>, offset: &mut usize) {
     }
 }
 
-fn function(token: &Token, chunk: &mut Chunk, source: &SourceCode) {
+fn function(tokens: &Vec<Token>, token: &Token, start: usize, chunk: &mut Chunk, source: &SourceCode) {
     let name = token.get_token(source);
     match name.as_str() {
         "+" => chunk.write_code(OpCode::Add, token.line),
@@ -49,6 +49,14 @@ fn function(token: &Token, chunk: &mut Chunk, source: &SourceCode) {
             chunk.write_code(OpCode::Not, token.line);
         }
         "print" => chunk.write_code(OpCode::Print, token.line),
+        "def" => {
+            let next_token = &tokens[start+1];
+            if next_token.token_type == TokenType::Symbol {
+                let sym = next_token.get_token(source);
+                let idx = chunk.write_constant(Value::Symbol(sym));
+                chunk.write_code(OpCode::DefineGlobal(idx), token.line);
+            }
+        }
         _ => report_error(token, source, format!("Unsupported function: {}", name).as_str()),
     }
 }
@@ -57,12 +65,13 @@ fn sexp(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source: &Sou
     advance(tokens, offset);
     let token = &tokens[*offset];
     if token.token_type == TokenType::Symbol {
+        let start = *offset;
         advance(tokens, offset);
         while tokens[*offset].token_type != TokenType::CloseParenthesis {
             // TODO count number of expressions and pop this many as arguments
             expression(tokens, offset, chunk, source);
         }
-        function(token, chunk, source);
+        function(tokens, token, start, chunk, source);
         consume_token(tokens, offset, chunk, &TokenType::CloseParenthesis, source);
     } else {
         report_error(token, source, "Function name must be a symbol")
@@ -107,7 +116,9 @@ fn expression(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source
             *offset += 1;
         }
         TokenType::Symbol => {
-            println!("parsed a symbol: {}", token.get_token(source));
+            let val = token.get_token(source);
+            let idx = chunk.write_constant(Value::Symbol(val));
+            chunk.write_code(OpCode::Constant(idx), token.line);
             *offset += 1;
         }
         TokenType::EOF => {

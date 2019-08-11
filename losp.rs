@@ -29,49 +29,51 @@ fn advance(tokens: &Vec<Token>, offset: &mut usize) {
     }
 }
 
-fn function(tokens: &Vec<Token>, token: &Token, start: usize, chunk: &mut Chunk, source: &SourceCode) {
-    let name = token.get_token(source);
-    match name.as_str() {
-        "+" => chunk.write_code(OpCode::Add, token.line),
-        "-" => chunk.write_code(OpCode::Subtract, token.line),
-        "*" => chunk.write_code(OpCode::Multiply, token.line),
-        "/" => chunk.write_code(OpCode::Divide, token.line),
-        "not" => chunk.write_code(OpCode::Not, token.line),
-        "=" => chunk.write_code(OpCode::Equal, token.line),
-        ">" => chunk.write_code(OpCode::GreaterThan, token.line),
-        ">=" => {
-            chunk.write_code(OpCode::LessThan, token.line);
-            chunk.write_code(OpCode::Not, token.line);
-        }
-        "<" => chunk.write_code(OpCode::LessThan, token.line),
-        "<=" => {
-            chunk.write_code(OpCode::GreaterThan, token.line);
-            chunk.write_code(OpCode::Not, token.line);
-        }
-        "print" => chunk.write_code(OpCode::Print, token.line),
-        "def" => {
-            let next_token = &tokens[start+1];
-            if next_token.token_type == TokenType::Symbol {
-                let sym = next_token.get_token(source);
-                let idx = chunk.write_constant(Value::Symbol(sym));
-                chunk.write_code(OpCode::DefineGlobal(idx), token.line);
-            }
-        }
-        _ => report_error(token, source, format!("Unsupported function: {}", name).as_str()),
-    }
-}
-
 fn sexp(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source: &SourceCode) {
     advance(tokens, offset);
     let token = &tokens[*offset];
     if token.token_type == TokenType::Symbol {
-        let start = *offset;
-        advance(tokens, offset);
-        while tokens[*offset].token_type != TokenType::CloseParenthesis {
-            // TODO count number of expressions and pop this many as arguments
-            expression(tokens, offset, chunk, source);
+        let fn_name = token.get_token(source);
+        if fn_name.as_str() == "def" {
+            // `def` needs to read ahead because the first arg is a raw symbol
+            advance(tokens, offset);
+            let next_token = &tokens[*offset];
+            if next_token.token_type == TokenType::Symbol {
+                let sym = next_token.get_token(source);
+                advance(tokens, offset);
+                expression(tokens, offset, chunk, source);
+                let idx = chunk.write_constant(Value::Symbol(sym));
+                chunk.write_code(OpCode::DefineGlobal(idx), token.line);
+            } else {
+                report_error(next_token, source, "Expected symbol for def")
+            }
+        } else {
+            advance(tokens, offset);
+            while tokens[*offset].token_type != TokenType::CloseParenthesis {
+                // TODO count number of expressions and pop this many as arguments
+                expression(tokens, offset, chunk, source);
+            }
+            match fn_name.as_str() {
+                "+" => chunk.write_code(OpCode::Add, token.line),
+                "-" => chunk.write_code(OpCode::Subtract, token.line),
+                "*" => chunk.write_code(OpCode::Multiply, token.line),
+                "/" => chunk.write_code(OpCode::Divide, token.line),
+                "not" => chunk.write_code(OpCode::Not, token.line),
+                "=" => chunk.write_code(OpCode::Equal, token.line),
+                ">" => chunk.write_code(OpCode::GreaterThan, token.line),
+                ">=" => {
+                    chunk.write_code(OpCode::LessThan, token.line);
+                    chunk.write_code(OpCode::Not, token.line);
+                }
+                "<" => chunk.write_code(OpCode::LessThan, token.line),
+                "<=" => {
+                    chunk.write_code(OpCode::GreaterThan, token.line);
+                    chunk.write_code(OpCode::Not, token.line);
+                }
+                "print" => chunk.write_code(OpCode::Print, token.line),
+                _ => report_error(token, source, format!("Unsupported function: {}", fn_name).as_str()),
+            }
         }
-        function(tokens, token, start, chunk, source);
         consume_token(tokens, offset, chunk, &TokenType::CloseParenthesis, source);
     } else {
         report_error(token, source, "Function name must be a symbol")
@@ -118,7 +120,7 @@ fn expression(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source
         TokenType::Symbol => {
             let val = token.get_token(source);
             let idx = chunk.write_constant(Value::Symbol(val));
-            chunk.write_code(OpCode::Constant(idx), token.line);
+            chunk.write_code(OpCode::GetGlobal(idx), token.line);
             *offset += 1;
         }
         TokenType::EOF => {

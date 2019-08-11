@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-#[derive(PartialEq)]
+#[derive(Clone,PartialEq)]
 pub enum Value {
     Nil,
     Bool(bool),
@@ -132,6 +132,7 @@ type ValueArray = Vec<Value>;
 pub enum OpCode {
     Constant(usize),
     DefineGlobal(usize),
+    GetGlobal(usize),
     Negate,
     Add,
     Subtract,
@@ -196,6 +197,7 @@ impl Chunk {
         match instruction {
             OpCode::Constant(ptr) => println!("CONSTANT \t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
             OpCode::DefineGlobal(ptr) => println!("DEF GLOBAL\t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
+            OpCode::GetGlobal(ptr) => println!("GET GLOBAL\t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
             OpCode::Negate => println!("NEGATE"),
             OpCode::Add => println!("ADD"),
             OpCode::Subtract => println!("SUBTRACT"),
@@ -262,6 +264,13 @@ impl VM {
                             self.globals.insert(name.to_string(), v);
                         },
                         None => break InterpretResult::RuntimeError("Empty stack"),
+                    }
+                }
+                OpCode::GetGlobal(ptr) => {
+                    let name = chunk.read_constant(*ptr);
+                    match self.globals.get(&name.to_string()) {
+                        Some(v) => self.stack.push(v.clone()),
+                        None => break InterpretResult::RuntimeError("Symbol not found"),
                     }
                 }
                 OpCode::Negate => {

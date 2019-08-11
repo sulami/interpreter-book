@@ -219,7 +219,6 @@ impl std::fmt::Debug for Chunk {
 }
 
 pub struct VM {
-    chunk: Chunk,
     ip: usize,
     stack: ValueArray,
     globals: HashMap<String, Value>,
@@ -232,33 +231,34 @@ pub enum InterpretResult<'a> {
 }
 
 impl VM {
-    fn print_state(self) {
+    fn print_state(&self) {
         println!("== vm state ==");
         println!("ip: {}", self.ip);
         println!("stack: {:?}", self.stack);
         println!("globals: {:?}", self.globals);
-        println!("{:?}", self.chunk);
     }
 
-    pub fn interpret<'a>(mut self, debug: bool) -> InterpretResult<'a> {
+    pub fn interpret<'a>(&mut self, chunk: Chunk, debug: bool) -> InterpretResult<'a> {
+        self.ip = 0;
+        self.stack = vec![];
         loop {
             if debug {
-                self.chunk.disassemble_instruction(self.ip);
+                chunk.disassemble_instruction(self.ip);
             }
-            if self.chunk.code.len() - 1 <= self.ip {
+            if chunk.code.len() - 1 <= self.ip {
                 if debug {
                     self.print_state();
                 }
                 break InterpretResult::OK;
             }
-            match &self.chunk.code[self.ip] {
+            match &chunk.code[self.ip] {
                 OpCode::Constant(ptr) => {
-                    self.stack.push(self.chunk.read_constant(*ptr));
+                    self.stack.push(chunk.read_constant(*ptr));
                 }
                 OpCode::DefineGlobal(ptr) => {
                     match self.stack.pop() {
                         Some(v) => {
-                            let name = self.chunk.read_constant(*ptr);
+                            let name = chunk.read_constant(*ptr);
                             self.globals.insert(name.to_string(), v);
                         },
                         None => break InterpretResult::RuntimeError("Empty stack"),
@@ -370,9 +370,8 @@ impl VM {
     }
 }
 
-pub fn init_vm(chunk: Chunk) -> VM {
+pub fn init_vm() -> VM {
     VM{
-        chunk: chunk,
         ip: 0,
         stack: vec![],
         globals: HashMap::new(),

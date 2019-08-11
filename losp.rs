@@ -8,7 +8,7 @@ mod scanner;
 mod vm;
 
 use scanner::{Line, Token, TokenType};
-use vm::{Chunk, InterpretResult, OpCode, Value};
+use vm::{Chunk, InterpretResult, OpCode, Value, VM};
 
 type SourceCode = Vec<char>;
 
@@ -178,24 +178,25 @@ fn compile(source: String) -> Option<Chunk> {
     }
 }
 
-fn interpret<'a>(source: String) -> InterpretResult<'a> {
+fn interpret<'a>(vm: &mut VM, source: String) -> InterpretResult<'a> {
     match compile(source) {
         None => vm::InterpretResult::CompileError,
-        Some(byte_code) => vm::init_vm(byte_code).interpret(true)
+        Some(chunk) => vm.interpret(chunk, true)
     }
 }
 
 fn repl() -> Result<()> {
+    let mut vm = vm::init_vm();
     loop {
         print!("> ");
         let _ = std::io::stdout().flush();
         let mut input = String::new();
         let _ = std::io::stdin().read_line(&mut input);
-        if input == "" {
+        if input == "\n" {
             println!("");
             break;
         }
-        match interpret(input) {
+        match interpret(&mut vm, input) {
             InterpretResult::CompileError => println!("Compile error"),
             InterpretResult::RuntimeError(msg) => println!("{}", msg),
             _ => (),
@@ -210,7 +211,8 @@ fn run_file(path: &String) -> Result<()> {
     let mut buf_reader = BufReader::new(file);
     let mut source = String::new();
     buf_reader.read_to_string(&mut source)?;
-    match interpret(source) {
+    let mut vm = vm::init_vm();
+    match interpret(&mut vm, source) {
         vm::InterpretResult::OK => Ok(()),
         vm::InterpretResult::CompileError => std::process::exit(65),
         vm::InterpretResult::RuntimeError(_) => std::process::exit(70),

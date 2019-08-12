@@ -143,6 +143,7 @@ pub enum OpCode {
     GreaterThan,
     LessThan,
     Print,
+    Pop,
     Return,
 }
 
@@ -208,6 +209,7 @@ impl Chunk {
             OpCode::GreaterThan => println!("GT"),
             OpCode::LessThan => println!("LT"),
             OpCode::Print => println!("PRINT"),
+            OpCode::Pop => println!("POP"),
             OpCode::Return => println!("RETURN"),
         }
     }
@@ -366,6 +368,11 @@ impl VM {
                     match self.stack.last() {
                         Some(c) => println!("{}", c), // TODO raw print without newline
                         None => break InterpretResult::RuntimeError("Empty stack"),
+                    }
+                }
+                OpCode::Pop => {
+                    if self.stack.pop().is_none() {
+                        break InterpretResult::RuntimeError("Empty stack");
                     }
                 }
                 OpCode::Return => {

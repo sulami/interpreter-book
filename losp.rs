@@ -12,6 +12,16 @@ use vm::{Chunk, InterpretResult, OpCode, Value, VM};
 
 type SourceCode = Vec<char>;
 
+struct LocalVar {
+    name: String,
+    depth: usize,
+}
+
+struct Compiler {
+    locals: Vec<LocalVar>,
+    scope_depth: usize,
+}
+
 fn report_error(error_token: &Token, source: &SourceCode, message: &str) {
     println!("Error at {} (line {}) : {}",
              error_token.get_token(source),
@@ -29,7 +39,7 @@ fn advance(tokens: &Vec<Token>, offset: &mut usize) {
     }
 }
 
-fn sexp(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source: &SourceCode) {
+fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source: &SourceCode) {
     advance(tokens, offset);
     let token = &tokens[*offset];
     if token.token_type == TokenType::Symbol {
@@ -41,17 +51,50 @@ fn sexp(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source: &Sou
             if next_token.token_type == TokenType::Symbol {
                 let sym = next_token.get_token(source);
                 advance(tokens, offset);
-                expression(tokens, offset, chunk, source);
+                expression(compiler, tokens, offset, chunk, source);
                 let idx = chunk.write_constant(Value::Symbol(sym));
                 chunk.write_code(OpCode::DefineGlobal(idx), token.line);
             } else {
                 report_error(next_token, source, "Expected symbol for def")
             }
+        } else if fn_name.as_str() == "let" {
+            println!("starting a let");
+            advance(tokens, offset);
+            compiler.scope_depth += 1;
+            consume_token(tokens, offset, &TokenType::OpenParenthesis, source);
+            while &tokens[*offset].token_type == &TokenType::OpenParenthesis {
+                advance(tokens, offset);
+                // TODO error if not a symbol
+                let name = &tokens[*offset].get_token(source);
+                compiler.locals.append(&mut vec![LocalVar{
+                    name: name.to_string(),
+                    depth: compiler.scope_depth,
+                }]);
+                advance(tokens, offset);
+                expression(compiler, tokens, offset, chunk, source);
+                consume_token(tokens, offset, &TokenType::CloseParenthesis, source);
+            }
+            consume_token(tokens, offset, &TokenType::CloseParenthesis, source);
+            expression(compiler, tokens, offset, chunk, source);
+            compiler.scope_depth -= 1;
+            loop {
+                match compiler.locals.last() {
+                    None => break,
+                    Some(l) => {
+                        if l.depth > compiler.scope_depth {
+                            compiler.locals.pop();
+                            chunk.write_code(OpCode::Pop, token.line);
+                        } else {
+                            break
+                        }
+                    }
+                }
+            }
         } else {
             advance(tokens, offset);
             while tokens[*offset].token_type != TokenType::CloseParenthesis {
                 // TODO count number of expressions and pop this many as arguments
-                expression(tokens, offset, chunk, source);
+                expression(compiler, tokens, offset, chunk, source);
             }
             match fn_name.as_str() {
                 "+" => chunk.write_code(OpCode::Add, token.line),
@@ -74,16 +117,20 @@ fn sexp(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source: &Sou
                 _ => report_error(token, source, format!("Unsupported function: {}", fn_name).as_str()),
             }
         }
-        consume_token(tokens, offset, chunk, &TokenType::CloseParenthesis, source);
+        consume_token(tokens, offset, &TokenType::CloseParenthesis, source);
     } else {
         report_error(token, source, "Function name must be a symbol")
     }
 }
 
-fn expression(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source: &SourceCode) {
+fn expression(compiler: &mut Compiler,
+              tokens: &Vec<Token>,
+              offset: &mut usize,
+              chunk: &mut Chunk,
+              source: &SourceCode) {
     let token = &tokens[*offset];
     match token.token_type {
-        TokenType::OpenParenthesis => sexp(tokens, offset, chunk, source),
+        TokenType::OpenParenthesis => sexp(compiler, tokens, offset, chunk, source),
         TokenType::Nil => {
             let idx = chunk.write_constant(Value::Nil);
             chunk.write_code(OpCode::Constant(idx), token.line);
@@ -133,7 +180,7 @@ fn expression(tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source
     };
 }
 
-fn consume_token(tokens: &Vec<Token>, offset: &mut usize, _chunk: &mut Chunk,
+fn consume_token(tokens: &Vec<Token>, offset: &mut usize,
                  expected_type: &TokenType, source: &SourceCode) {
     let token = &tokens[*offset];
     if token.token_type == *expected_type {
@@ -144,6 +191,7 @@ fn consume_token(tokens: &Vec<Token>, offset: &mut usize, _chunk: &mut Chunk,
 }
 
 fn compile(source: String) -> Option<Chunk> {
+    let mut compiler = Compiler{locals: vec![], scope_depth: 0};
     let source_chars: SourceCode = source.chars().collect();
     let tokens = scanner::scan(&source_chars, false);
     let mut chunk = Chunk{
@@ -169,7 +217,7 @@ fn compile(source: String) -> Option<Chunk> {
             panic_mode = true;
             had_error = true;
         } else {
-            expression(&tokens, &mut offset, &mut chunk, &source_chars);
+            expression(&mut compiler, &tokens, &mut offset, &mut chunk, &source_chars);
         }
     }
     emit_byte(&mut chunk, OpCode::Return, 99);

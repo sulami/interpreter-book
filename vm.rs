@@ -202,8 +202,8 @@ impl Chunk {
             OpCode::Constant(ptr) => println!("CONSTANT \t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
             OpCode::DefineGlobal(ptr) => println!("DEF GLOBAL\t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
             OpCode::GetGlobal(ptr) => println!("GET GLOBAL\t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
-            OpCode::DefineLocal(ptr) => println!("DEF LOCAL\t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
-            OpCode::GetLocal(ptr) => println!("GET LOCAL\t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
+            OpCode::DefineLocal(ptr) => println!("DEF LOCAL\t[{}]", ptr),
+            OpCode::GetLocal(ptr) => println!("GET LOCAL\t[{}]", ptr),
             OpCode::Negate => println!("NEGATE"),
             OpCode::Add => println!("ADD"),
             OpCode::Subtract => println!("SUBTRACT"),
@@ -215,7 +215,7 @@ impl Chunk {
             OpCode::LessThan => println!("LT"),
             OpCode::Print => println!("PRINT"),
             OpCode::Pop => println!("POP"),
-            OpCode::Zap(ptr) => println!("ZAP\t\t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
+            OpCode::Zap(ptr) => println!("ZAP\t\t[{}]", ptr),
             OpCode::Return => println!("RETURN"),
         }
     }

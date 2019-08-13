@@ -1,3 +1,5 @@
+;; -*- mode: scheme -*-
+
 (print "comments work:")
 ; a comment
 (print true)

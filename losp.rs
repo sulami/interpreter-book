@@ -71,7 +71,7 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
                 let name = binding_token.get_token(source);
                 advance(tokens, offset);
                 expression(compiler, tokens, offset, chunk, source);
-                chunk.write_code(OpCode::DefineLocal(compiler.locals.len()), binding_token.line);
+                // chunk.write_code(OpCode::DefineLocal(compiler.locals.len()), binding_token.line);
                 compiler.locals.append(&mut vec![LocalVar{
                     name: name.to_string(),
                     depth: compiler.scope_depth,
@@ -247,14 +247,14 @@ fn compile(source: String) -> Option<Chunk> {
     }
 }
 
-fn interpret<'a>(vm: &mut VM, source: String) -> InterpretResult<'a> {
+fn interpret<'a>(vm: &mut VM, source: String, debug: bool) -> InterpretResult<'a> {
     match compile(source) {
         None => vm::InterpretResult::CompileError,
-        Some(chunk) => vm.interpret(chunk, true)
+        Some(chunk) => vm.interpret(chunk, debug)
     }
 }
 
-fn repl() -> Result<()> {
+fn repl(debug: bool) -> Result<()> {
     let mut vm = vm::init_vm();
     loop {
         print!("> ");
@@ -265,7 +265,7 @@ fn repl() -> Result<()> {
             println!("");
             break;
         }
-        match interpret(&mut vm, input) {
+        match interpret(&mut vm, input, debug) {
             InterpretResult::CompileError => println!("Compile error"),
             InterpretResult::RuntimeError(msg) => println!("{}", msg),
             _ => (),
@@ -274,14 +274,13 @@ fn repl() -> Result<()> {
     Ok(())
 }
 
-fn run_file(path: &String) -> Result<()> {
-    println!("Compiling {}...", path);
+fn run_file(path: &String, debug: bool) -> Result<()> {
     let file = File::open(path)?;
     let mut buf_reader = BufReader::new(file);
     let mut source = String::new();
     buf_reader.read_to_string(&mut source)?;
     let mut vm = vm::init_vm();
-    match interpret(&mut vm, source) {
+    match interpret(&mut vm, source, debug) {
         vm::InterpretResult::OK => Ok(()),
         vm::InterpretResult::CompileError => std::process::exit(65),
         vm::InterpretResult::RuntimeError(_) => std::process::exit(70),
@@ -291,8 +290,9 @@ fn run_file(path: &String) -> Result<()> {
 fn main() -> Result<()> {
     let opts = std::env::args();
     match opts.len() {
-        1 => repl(),
-        2 => run_file(&opts.last().expect("the world is ending")),
+        1 => repl(false),
+        2 => run_file(&opts.last().expect("the world is ending"), false),
+        3 => run_file(&opts.last().expect("the world is ending"), true),
         _ => {
             let name = "losp";
             println!("useage:");

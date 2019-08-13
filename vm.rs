@@ -133,6 +133,8 @@ pub enum OpCode {
     Constant(usize),
     DefineGlobal(usize),
     GetGlobal(usize),
+    DefineLocal(usize),
+    GetLocal(usize),
     Negate,
     Add,
     Subtract,
@@ -199,6 +201,8 @@ impl Chunk {
             OpCode::Constant(ptr) => println!("CONSTANT \t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
             OpCode::DefineGlobal(ptr) => println!("DEF GLOBAL\t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
             OpCode::GetGlobal(ptr) => println!("GET GLOBAL\t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
+            OpCode::DefineLocal(ptr) => println!("DEF LOCAL\t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
+            OpCode::GetLocal(ptr) => println!("GET LOCAL\t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
             OpCode::Negate => println!("NEGATE"),
             OpCode::Add => println!("ADD"),
             OpCode::Subtract => println!("SUBTRACT"),
@@ -275,6 +279,19 @@ impl VM {
                         Some(v) => self.stack.push(v.clone()),
                         None => break InterpretResult::RuntimeError("Symbol not found"),
                     }
+                }
+                OpCode::DefineLocal(_ptr) => {
+                    // match self.stack.pop() {
+                    //     Some(v) => {
+                    //         let name = chunk.read_constant(*ptr);
+                    //         self.globals.insert(name.to_string(), v);
+                    //         self.stack.push(name);
+                    //     },
+                    //     None => break InterpretResult::RuntimeError("Empty stack"),
+                    // }
+                }
+                OpCode::GetLocal(idx) => {
+                    self.stack.push(self.stack[*idx].clone());
                 }
                 OpCode::Negate => {
                     match self.stack.pop() {

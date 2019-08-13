@@ -58,14 +58,15 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
                 report_error(next_token, source, "Expected symbol for def")
             }
         } else if fn_name.as_str() == "let" {
-            println!("starting a let");
             advance(tokens, offset);
             compiler.scope_depth += 1;
             consume_token(tokens, offset, &TokenType::OpenParenthesis, source);
             while &tokens[*offset].token_type == &TokenType::OpenParenthesis {
                 advance(tokens, offset);
                 // TODO error if not a symbol
-                let name = &tokens[*offset].get_token(source);
+                let binding_token = &tokens[*offset];
+                let name = binding_token.get_token(source);
+                chunk.write_code(OpCode::DefineLocal(compiler.locals.len()), binding_token.line);
                 compiler.locals.append(&mut vec![LocalVar{
                     name: name.to_string(),
                     depth: compiler.scope_depth,
@@ -77,11 +78,12 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             consume_token(tokens, offset, &TokenType::CloseParenthesis, source);
             expression(compiler, tokens, offset, chunk, source);
             compiler.scope_depth -= 1;
+            // FIXME if the `let` returns a value, that will be on the stack last
             loop {
                 match compiler.locals.last() {
                     None => break,
                     Some(l) => {
-                        if l.depth > compiler.scope_depth {
+                        if compiler.scope_depth < l.depth {
                             compiler.locals.pop();
                             chunk.write_code(OpCode::Pop, token.line);
                         } else {
@@ -134,48 +136,59 @@ fn expression(compiler: &mut Compiler,
         TokenType::Nil => {
             let idx = chunk.write_constant(Value::Nil);
             chunk.write_code(OpCode::Constant(idx), token.line);
-            *offset += 1;
+            advance(tokens, offset);
         }
         TokenType::Bool => {
             let val: bool = token.get_token(source) == "true";
             let idx = chunk.write_constant(Value::Bool(val));
             chunk.write_code(OpCode::Constant(idx), token.line);
-            *offset += 1;
+            advance(tokens, offset);
         }
         TokenType::Int => {
             let val: i64 = token.get_token(source).parse().unwrap();
             let idx = chunk.write_constant(Value::Int(val));
             chunk.write_code(OpCode::Constant(idx), token.line);
-            *offset += 1;
+            advance(tokens, offset);
         }
         TokenType::Float => {
             let val: f64 = token.get_token(source).parse().unwrap();
             let idx = chunk.write_constant(Value::Float(val));
             chunk.write_code(OpCode::Constant(idx), token.line);
-            *offset += 1;
+            advance(tokens, offset);
         }
         TokenType::Keyword => {
             println!("parsed a keyword: {}", token.get_token(source));
-            *offset += 1;
+            advance(tokens, offset);
         }
         TokenType::String => {
             let val = token.get_token(source);
             let idx = chunk.write_constant(Value::String(val));
             chunk.write_code(OpCode::Constant(idx), token.line);
-            *offset += 1;
+            advance(tokens, offset);
         }
         TokenType::Symbol => {
             let val = token.get_token(source);
-            let idx = chunk.write_constant(Value::Symbol(val));
-            chunk.write_code(OpCode::GetGlobal(idx), token.line);
-            *offset += 1;
+            let local_count = compiler.locals.len();
+            let mut is_local = false;
+            for i in 0..local_count {
+                if compiler.locals[local_count - i - 1].name == val {
+                    chunk.write_code(OpCode::GetLocal(i), token.line);
+                    is_local = true;
+                    break
+                }
+            }
+            if !is_local {
+                let idx = chunk.write_constant(Value::Symbol(val));
+                chunk.write_code(OpCode::GetGlobal(idx), token.line);
+            }
+            advance(tokens, offset);
         }
         TokenType::EOF => {
-            *offset += 1;
+            advance(tokens, offset);
         }
         _ => {
             report_error(&token, source, "Token type not implemented");
-            *offset += 1;
+            advance(tokens, offset);
         }
     };
 }
@@ -184,7 +197,7 @@ fn consume_token(tokens: &Vec<Token>, offset: &mut usize,
                  expected_type: &TokenType, source: &SourceCode) {
     let token = &tokens[*offset];
     if token.token_type == *expected_type {
-        *offset += 1;
+        advance(tokens, offset);
     } else {
         report_error(&token, source, "Did not find expected token type");
     };

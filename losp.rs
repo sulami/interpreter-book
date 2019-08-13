@@ -176,8 +176,9 @@ fn expression(compiler: &mut Compiler,
             let local_count = compiler.locals.len();
             let mut is_local = false;
             for i in 0..local_count {
-                if compiler.locals[local_count - i - 1].name == val {
-                    chunk.write_code(OpCode::GetLocal(i), token.line);
+                let idx = local_count - i - 1;
+                if compiler.locals[idx].name == val {
+                    chunk.write_code(OpCode::GetLocal(idx), token.line);
                     is_local = true;
                     break
                 }

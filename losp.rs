@@ -58,8 +58,11 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
                 report_error(next_token, source, "Expected symbol for def")
             }
         } else if fn_name.as_str() == "let" {
+            // Setup a new scope
             advance(tokens, offset);
             compiler.scope_depth += 1;
+
+            // Eval & Setup the bindings
             consume_token(tokens, offset, &TokenType::OpenParenthesis, source);
             while &tokens[*offset].token_type == &TokenType::OpenParenthesis {
                 advance(tokens, offset);
@@ -76,20 +79,22 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
                 consume_token(tokens, offset, &TokenType::CloseParenthesis, source);
             }
             consume_token(tokens, offset, &TokenType::CloseParenthesis, source);
+
+            // Eval the inner expressions
+            // TODO allow for several expressions
             expression(compiler, tokens, offset, chunk, source);
+
+            // Zap the local scope off the stack when it ends
             compiler.scope_depth -= 1;
-            // FIXME if the `let` returns a value, that will be on the stack last
-            loop {
-                match compiler.locals.last() {
-                    None => break,
-                    Some(l) => {
-                        if compiler.scope_depth < l.depth {
-                            compiler.locals.pop();
-                            chunk.write_code(OpCode::Pop, token.line);
-                        } else {
-                            break
-                        }
-                    }
+            let local_count = compiler.locals.len();
+            for i in 0..local_count {
+                let idx = local_count - i - 1;
+                let l = &compiler.locals[idx];
+                if compiler.scope_depth < l.depth {
+                    compiler.locals.pop();
+                    chunk.write_code(OpCode::Zap(idx), token.line);
+                } else {
+                    break
                 }
             }
         } else {

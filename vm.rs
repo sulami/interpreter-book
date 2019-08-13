@@ -146,6 +146,7 @@ pub enum OpCode {
     LessThan,
     Print,
     Pop,
+    Zap(usize),
     Return,
 }
 
@@ -214,6 +215,7 @@ impl Chunk {
             OpCode::LessThan => println!("LT"),
             OpCode::Print => println!("PRINT"),
             OpCode::Pop => println!("POP"),
+            OpCode::Zap(ptr) => println!("ZAP\t\t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
             OpCode::Return => println!("RETURN"),
         }
     }
@@ -281,14 +283,6 @@ impl VM {
                     }
                 }
                 OpCode::DefineLocal(_ptr) => {
-                    // match self.stack.pop() {
-                    //     Some(v) => {
-                    //         let name = chunk.read_constant(*ptr);
-                    //         self.globals.insert(name.to_string(), v);
-                    //         self.stack.push(name);
-                    //     },
-                    //     None => break InterpretResult::RuntimeError("Empty stack"),
-                    // }
                 }
                 OpCode::GetLocal(idx) => {
                     self.stack.push(self.stack[*idx].clone());
@@ -391,6 +385,12 @@ impl VM {
                     if self.stack.pop().is_none() {
                         break InterpretResult::RuntimeError("Empty stack");
                     }
+                }
+                OpCode::Zap(ptr) => {
+                    if self.stack.len() <= *ptr {
+                        break InterpretResult::RuntimeError("Zap out of bounds")
+                    }
+                    self.stack.remove(*ptr);
                 }
                 OpCode::Return => {
                     match self.stack.pop() {

@@ -375,7 +375,7 @@ impl VM {
                     }
                 }
                 OpCode::Print => {
-                    match self.stack.last() {
+                    match self.stack.pop() {
                         Some(c) => println!("{}", c), // TODO raw print without newline
                         None => break InterpretResult::RuntimeError("Empty stack"),
                     }

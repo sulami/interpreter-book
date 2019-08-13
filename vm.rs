@@ -270,7 +270,6 @@ impl VM {
                         Some(v) => {
                             let name = chunk.read_constant(*ptr);
                             self.globals.insert(name.to_string(), v);
-                            self.stack.push(name);
                         },
                         None => break InterpretResult::RuntimeError("Empty stack"),
                     }

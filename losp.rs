@@ -66,13 +66,13 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
                 // TODO error if not a symbol
                 let binding_token = &tokens[*offset];
                 let name = binding_token.get_token(source);
+                advance(tokens, offset);
+                expression(compiler, tokens, offset, chunk, source);
                 chunk.write_code(OpCode::DefineLocal(compiler.locals.len()), binding_token.line);
                 compiler.locals.append(&mut vec![LocalVar{
                     name: name.to_string(),
                     depth: compiler.scope_depth,
                 }]);
-                advance(tokens, offset);
-                expression(compiler, tokens, offset, chunk, source);
                 consume_token(tokens, offset, &TokenType::CloseParenthesis, source);
             }
             consume_token(tokens, offset, &TokenType::CloseParenthesis, source);

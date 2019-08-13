@@ -76,14 +76,15 @@ fn is_symbol(c: char) -> bool {
         || c == '='
 }
 
-fn advance(source: &Vec<char>, offset: &mut usize, line: &mut Line) {
-    if *offset == source.len() {
-        return
+fn advance(source: &Vec<char>, offset: &mut usize, line: &mut Line) -> bool {
+    if *offset == source.len() - 1 {
+        return false
     }
     if source[*offset] == '\n' {
         *line += 1;
     }
     *offset += 1;
+    true
 }
 
 fn peek(source: &Vec<char>, offset: usize) -> Option<char> {
@@ -174,8 +175,10 @@ fn scan_number(source: &Vec<char>, start: &mut usize) -> (TokenType, usize) {
 
 fn scan_symbol(source: &Vec<char>, start: &mut usize, line: &mut Line) -> (TokenType, usize) {
     let mut symbol_end = *start;
-    while is_symbol(source[symbol_end]) {
-        advance(source, &mut symbol_end, line);
+    while advance(source, &mut symbol_end, line) {
+        if !is_symbol(source[symbol_end]) {
+            break
+        }
     }
     let token_length = symbol_end - *start;
     match source[*start..symbol_end] {

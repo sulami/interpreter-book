@@ -1,0 +1,31 @@
+(print "comments work:")
+; a comment
+(print true)
+
+(print "basic maths work:")
+(print (= 4.0
+          (/ (+ 3 5)
+             2)))
+
+(print "simple let works:")
+(let ((a 1))
+  (print (= 1 a)))
+
+(print "let with def works:")
+(def g true)
+(let ((f false))
+  (print (not (= f g))))
+
+(print "nested lets work:")
+(let ((a 1))
+  (let ((b 2))
+    (print (= 3 (+ a b)))))
+
+(print "shawowing a global works:")
+(let ((g false))
+  (print (not g)))
+
+(print "shadowing a local works:")
+(let ((a 1))
+  (let ((a 2))
+    (print (= 4 (+ a a)))))

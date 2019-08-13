@@ -109,6 +109,17 @@ fn skip_comments(source: &Vec<char>, start: &mut usize, line: &mut Line) {
     }
 }
 
+fn skip_non_code(source: &Vec<char>, start: &mut usize, line: &mut Line) {
+    loop {
+        let started_at = *start;
+        skip_whitespace(source, start, line);
+        skip_comments(source, start, line);
+        if *start == started_at {
+            break
+        }
+    }
+}
+
 fn scan_string(source: &Vec<char>, start: &mut usize, line: &mut Line) -> (TokenType, usize) {
     let mut string_end = *start;
     loop {
@@ -193,8 +204,7 @@ fn scan_dash(source: &Vec<char>, start: &mut usize, line: &mut Line) -> (TokenTy
 
 fn scan_token(source: &Vec<char>, offset: usize, line: &mut Line) -> Token {
     let mut start = offset;
-    skip_whitespace(source, &mut start, line);
-    skip_comments(source, &mut start, line);
+    skip_non_code(source, &mut start, line);
     let (token_type, length) = match source[start] {
         '(' => (TokenType::OpenParenthesis, 1),
         ')' => (TokenType::CloseParenthesis, 1),

@@ -164,6 +164,23 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             expression(compiler, tokens, offset, chunk, source);
             // The second JMP goes here
             chunk.code[sad_jmp_idx] = OpCode::Jump(chunk.code.len() - 1);
+        } else if fn_name.as_str() == "while" {
+            advance(tokens, offset);
+            // Set the loop starting point
+            let loop_start_idx = chunk.code.len() - 1;
+            // Eval the condition
+            expression(compiler, tokens, offset, chunk, source);
+            // This JMP termiates the loop
+            chunk.write_code(OpCode::JumpIfFalse(0), token.line);
+            let loop_end_jmp_idx = chunk.code.len() - 1;
+            chunk.write_code(OpCode::Pop, token.line);
+            // Eval the body
+            expression(compiler, tokens, offset, chunk, source);
+            // Jump back to the condition
+            chunk.write_code(OpCode::Jump(loop_start_idx), token.line);
+            // Jump to here if we're done looping
+            chunk.code[loop_end_jmp_idx] = OpCode::JumpIfFalse(chunk.code.len() - 1);
+            chunk.write_code(OpCode::Pop, token.line);
         } else {
             advance(tokens, offset);
             while tokens[*offset].token_type != TokenType::CloseParenthesis {

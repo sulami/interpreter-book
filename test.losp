@@ -80,3 +80,8 @@
 
 (print "or works with both falsy arguments:")
 (print (= false (or false false)))
+
+(print "do works:")
+(do (= 1 2)
+    (not (= 1 1))
+    (print true))

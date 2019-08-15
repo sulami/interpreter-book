@@ -61,7 +61,6 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             // Setup a new scope
             advance(tokens, offset);
             compiler.scope_depth += 1;
-
             // Eval & Setup the bindings
             consume_token(tokens, offset, &TokenType::OpenParenthesis, source);
             while &tokens[*offset].token_type == &TokenType::OpenParenthesis {
@@ -79,11 +78,9 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
                 consume_token(tokens, offset, &TokenType::CloseParenthesis, source);
             }
             consume_token(tokens, offset, &TokenType::CloseParenthesis, source);
-
             // Eval the inner expressions
             // TODO allow for several expressions
             expression(compiler, tokens, offset, chunk, source);
-
             // Zap the local scope off the stack when it ends
             compiler.scope_depth -= 1;
             let local_count = compiler.locals.len();
@@ -181,6 +178,12 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             // Jump to here if we're done looping
             chunk.backpatch_jump(loop_end_jmp_idx);
             chunk.write_code(OpCode::Pop, token.line);
+        } else if fn_name.as_str() == "do" {
+            advance(tokens, offset);
+            // Just keep evaluating in the current scope until we run out
+            while tokens[*offset].token_type != TokenType::CloseParenthesis {
+                expression(compiler, tokens, offset, chunk, source);
+            }
         } else {
             advance(tokens, offset);
             while tokens[*offset].token_type != TokenType::CloseParenthesis {

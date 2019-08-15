@@ -47,6 +47,12 @@
 (print (when true
          true))
 
+;; this will work once when is implemented as (if x nil)
+(print "when returns nil on the sad path:")
+(print (= nil
+          (when false
+            true)))
+
 (print "if happy path works:")
 (if true
     (print true)
@@ -91,7 +97,7 @@
     (not (= 1 1))
     (print true))
 
-(print "def inside while works")
+(print "def inside while works:")
 (def i 0)
 (while (< i 10)
        (def i (+ i 1))

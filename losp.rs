@@ -146,6 +146,24 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             // Backpatch the JMP instruction to skip eval of the second argument
             // if the first one is falsy
             chunk.code[jmp_idx] = OpCode::JumpIfFalse(chunk.code.len() - 1);
+        } else if fn_name.as_str() == "or" {
+            advance(tokens, offset);
+            // TODO implement n-arity
+            // Eval the first argument
+            expression(compiler, tokens, offset, chunk, source);
+            // Jump past the next jump if the first arg is falsy
+            chunk.write_code(OpCode::JumpIfFalse(0), token.line);
+            let happy_jmp_idx = chunk.code.len() - 1;
+            // Jump past the second arg otherwise
+            chunk.write_code(OpCode::Jump(0), token.line);
+            let sad_jmp_idx = chunk.code.len() - 1;
+            // The first JMP goes here
+            chunk.code[happy_jmp_idx] = OpCode::JumpIfFalse(chunk.code.len() - 1);
+            chunk.write_code(OpCode::Pop, token.line);
+            // Eval the second argument
+            expression(compiler, tokens, offset, chunk, source);
+            // The second JMP goes here
+            chunk.code[sad_jmp_idx] = OpCode::Jump(chunk.code.len() - 1);
         } else {
             advance(tokens, offset);
             while tokens[*offset].token_type != TokenType::CloseParenthesis {

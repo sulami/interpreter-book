@@ -68,3 +68,15 @@
 
 (print "and works with both falsy arguments:")
 (print (= false (and false false)))
+
+(print "or works on the happy path:")
+(print (or true true))
+
+(print "or works with the first falsy argument:")
+(print (or false true))
+
+(print "or works with the second falsy argument:")
+(print (or true false))
+
+(print "or works with both falsy arguments:")
+(print (= false (or false false)))

@@ -104,6 +104,8 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             // Write a provisional JMP instruction and note the position
             chunk.write_code(OpCode::JumpIfFalse(0), token.line);
             let jmp_idx = chunk.code.len() - 1;
+            // Pop the conditional value
+            chunk.write_code(OpCode::Pop, token.line);
             // Eval the body
             expression(compiler, tokens, offset, chunk, source);
             // Backpatch the end of the body into the JMP instruction
@@ -115,17 +117,35 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             // Write a provisional JMP instruction and note the position
             chunk.write_code(OpCode::JumpIfFalse(0), token.line);
             let sad_jmp_idx = chunk.code.len() - 1;
+            // Pop the conditional value on the happy path
+            chunk.write_code(OpCode::Pop, token.line);
             // Eval the happy path body
             expression(compiler, tokens, offset, chunk, source);
             // Write a provisional JMP instruction to pass the sad path
             chunk.write_code(OpCode::Jump(0), token.line);
             let happy_jmp_idx = chunk.code.len() - 1;
+            // Pop the conditional value on the sad path
+            chunk.write_code(OpCode::Pop, token.line);
             // Backpatch the end of the happy path body into the first JMP instruction
             chunk.code[sad_jmp_idx] = OpCode::JumpIfFalse(chunk.code.len() - 1);
             // Eval the sad path body
             expression(compiler, tokens, offset, chunk, source);
             // Backpatch the end of the sad path body into the second JMP instruction
             chunk.code[happy_jmp_idx] = OpCode::Jump(chunk.code.len() - 1);
+        } else if fn_name.as_str() == "and" {
+            advance(tokens, offset);
+            // TODO implement n-arity
+            // Eval the first argument
+            expression(compiler, tokens, offset, chunk, source);
+            // Write a provisional JMP instruction and note the position
+            chunk.write_code(OpCode::JumpIfFalse(0), token.line);
+            let jmp_idx = chunk.code.len() - 1;
+            chunk.write_code(OpCode::Pop, token.line);
+            // Eval the second argument
+            expression(compiler, tokens, offset, chunk, source);
+            // Backpatch the JMP instruction to skip eval of the second argument
+            // if the first one is falsy
+            chunk.code[jmp_idx] = OpCode::JumpIfFalse(chunk.code.len() - 1);
         } else {
             advance(tokens, offset);
             while tokens[*offset].token_type != TokenType::CloseParenthesis {

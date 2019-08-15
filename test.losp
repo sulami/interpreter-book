@@ -56,3 +56,15 @@
 (print (if true
            true
            false))
+
+(print "and works on the happy path:")
+(print (and true true))
+
+(print "and works with the first falsy argument:")
+(print (= false (and false true)))
+
+(print "and works with the second falsy argument:")
+(print (= false (and true false)))
+
+(print "and works with both falsy arguments:")
+(print (= false (and false false)))

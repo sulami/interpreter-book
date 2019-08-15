@@ -301,7 +301,7 @@ impl VM {
                 OpCode::GetLocal(idx) => self.stack.push(self.stack[*idx].clone()),
                 OpCode::Jump(ptr) => self.ip = *ptr,
                 OpCode::JumpIfFalse(ptr) => {
-                    match self.stack.pop() {
+                    match self.stack.last() {
                         Some(v) => {
                             if !v.truthy() {
                                 self.ip = *ptr;

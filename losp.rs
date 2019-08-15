@@ -108,6 +108,24 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             expression(compiler, tokens, offset, chunk, source);
             // Backpatch the end of the body into the JMP instruction
             chunk.code[jmp_idx] = OpCode::JumpIfFalse(chunk.code.len() - 1);
+        } else if fn_name.as_str() == "if" {
+            advance(tokens, offset);
+            // Eval the condition onto the stack
+            expression(compiler, tokens, offset, chunk, source);
+            // Write a provisional JMP instruction and note the position
+            chunk.write_code(OpCode::JumpIfFalse(0), token.line);
+            let sad_jmp_idx = chunk.code.len() - 1;
+            // Eval the happy path body
+            expression(compiler, tokens, offset, chunk, source);
+            // Write a provisional JMP instruction to pass the sad path
+            chunk.write_code(OpCode::Jump(0), token.line);
+            let happy_jmp_idx = chunk.code.len() - 1;
+            // Backpatch the end of the happy path body into the first JMP instruction
+            chunk.code[sad_jmp_idx] = OpCode::JumpIfFalse(chunk.code.len() - 1);
+            // Eval the sad path body
+            expression(compiler, tokens, offset, chunk, source);
+            // Backpatch the end of the sad path body into the second JMP instruction
+            chunk.code[happy_jmp_idx] = OpCode::Jump(chunk.code.len() - 1);
         } else {
             advance(tokens, offset);
             while tokens[*offset].token_type != TokenType::CloseParenthesis {

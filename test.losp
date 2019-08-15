@@ -37,3 +37,13 @@
   (print false))
 (when true
   (print true))
+
+(print "if happy path works:")
+(if true
+    (print true)
+    (print false))
+
+(print "if sad path works:")
+(if false
+    (print false)
+    (print true))

@@ -354,7 +354,7 @@ fn compile(source: String) -> Option<Chunk> {
 fn interpret<'a>(vm: &mut VM, source: String, debug: bool) -> InterpretResult<'a> {
     match compile(source) {
         None => vm::InterpretResult::CompileError,
-        Some(chunk) => vm.interpret(chunk, debug)
+        Some(chunk) => vm.interpret(chunk, debug),
     }
 }
 
@@ -387,7 +387,10 @@ fn run_file(path: &String, debug: bool) -> Result<()> {
     match interpret(&mut vm, source, debug) {
         vm::InterpretResult::OK => Ok(()),
         vm::InterpretResult::CompileError => std::process::exit(65),
-        vm::InterpretResult::RuntimeError(_) => std::process::exit(70),
+        vm::InterpretResult::RuntimeError(msg) => {
+            println!("{}", msg);
+            std::process::exit(70);
+        }
     }
 }
 

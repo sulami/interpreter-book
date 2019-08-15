@@ -109,7 +109,7 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             // Eval the body
             expression(compiler, tokens, offset, chunk, source);
             // Backpatch the end of the body into the JMP instruction
-            chunk.code[jmp_idx] = OpCode::JumpIfFalse(chunk.code.len() - 1);
+            chunk.backpatch_jump(jmp_idx);
         } else if fn_name.as_str() == "if" {
             advance(tokens, offset);
             // Eval the condition onto the stack
@@ -127,11 +127,11 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             // Pop the conditional value on the sad path
             chunk.write_code(OpCode::Pop, token.line);
             // Backpatch the end of the happy path body into the first JMP instruction
-            chunk.code[sad_jmp_idx] = OpCode::JumpIfFalse(chunk.code.len() - 1);
+            chunk.backpatch_jump(sad_jmp_idx);
             // Eval the sad path body
             expression(compiler, tokens, offset, chunk, source);
             // Backpatch the end of the sad path body into the second JMP instruction
-            chunk.code[happy_jmp_idx] = OpCode::Jump(chunk.code.len() - 1);
+            chunk.backpatch_jump(happy_jmp_idx);
         } else if fn_name.as_str() == "and" {
             advance(tokens, offset);
             // TODO implement n-arity
@@ -145,7 +145,7 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             expression(compiler, tokens, offset, chunk, source);
             // Backpatch the JMP instruction to skip eval of the second argument
             // if the first one is falsy
-            chunk.code[jmp_idx] = OpCode::JumpIfFalse(chunk.code.len() - 1);
+            chunk.backpatch_jump(jmp_idx);
         } else if fn_name.as_str() == "or" {
             advance(tokens, offset);
             // TODO implement n-arity
@@ -158,12 +158,12 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             chunk.write_code(OpCode::Jump(0), token.line);
             let sad_jmp_idx = chunk.code.len() - 1;
             // The first JMP goes here
-            chunk.code[happy_jmp_idx] = OpCode::JumpIfFalse(chunk.code.len() - 1);
+            chunk.backpatch_jump(happy_jmp_idx);
             chunk.write_code(OpCode::Pop, token.line);
             // Eval the second argument
             expression(compiler, tokens, offset, chunk, source);
             // The second JMP goes here
-            chunk.code[sad_jmp_idx] = OpCode::Jump(chunk.code.len() - 1);
+            chunk.backpatch_jump(sad_jmp_idx);
         } else if fn_name.as_str() == "while" {
             advance(tokens, offset);
             // Set the loop starting point
@@ -179,7 +179,7 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             // Jump back to the condition
             chunk.write_code(OpCode::Jump(loop_start_idx), token.line);
             // Jump to here if we're done looping
-            chunk.code[loop_end_jmp_idx] = OpCode::JumpIfFalse(chunk.code.len() - 1);
+            chunk.backpatch_jump(loop_end_jmp_idx);
             chunk.write_code(OpCode::Pop, token.line);
         } else {
             advance(tokens, offset);

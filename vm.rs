@@ -195,6 +195,15 @@ impl Chunk {
         self.constants.len() - 1
     }
 
+    pub fn backpatch_jump(&mut self, idx: usize) {
+        let target = self.code.len() - 1;
+        match self.code[idx] {
+            OpCode::Jump(_) => self.code[idx] = OpCode::Jump(target),
+            OpCode::JumpIfFalse(_) => self.code[idx] = OpCode::JumpIfFalse(target),
+            _ => panic!("This is not a jump"),
+        }
+    }
+
     pub fn write_code(&mut self, op_code: OpCode, line: Line) {
         self.code.append(&mut vec![op_code]);
         self.write_line(line);

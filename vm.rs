@@ -146,6 +146,7 @@ pub enum OpCode {
     GetGlobal(usize),
     DefineLocal(usize),
     GetLocal(usize),
+    Jump(usize),
     JumpIfFalse(usize),
     Negate,
     Add,
@@ -216,6 +217,7 @@ impl Chunk {
             OpCode::GetGlobal(ptr) => println!("GET GLOBAL\t[{:04}] =>\t{:?}", ptr, self.read_constant(*ptr)),
             OpCode::DefineLocal(ptr) => println!("DEF LOCAL\t[{:04x}]", ptr),
             OpCode::GetLocal(ptr) => println!("GET LOCAL\t[{:04x}]", ptr),
+            OpCode::Jump(ptr) => println!("JMP\t\t[{:04x}]", ptr),
             OpCode::JumpIfFalse(ptr) => println!("JMP IF F\t[{:04x}]", ptr),
             OpCode::Negate => println!("NEGATE"),
             OpCode::Add => println!("ADD"),
@@ -296,9 +298,8 @@ impl VM {
                 }
                 OpCode::DefineLocal(_ptr) => {
                 }
-                OpCode::GetLocal(idx) => {
-                    self.stack.push(self.stack[*idx].clone());
-                }
+                OpCode::GetLocal(idx) => self.stack.push(self.stack[*idx].clone()),
+                OpCode::Jump(ptr) => self.ip = *ptr,
                 OpCode::JumpIfFalse(ptr) => {
                     match self.stack.pop() {
                         Some(v) => {

@@ -38,6 +38,11 @@
 (when true
   (print true))
 
+(print "when works with implicit do:")
+(when true
+  1
+  (print true))
+
 (print "when returns a value:")
 (print (when true
          true))

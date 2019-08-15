@@ -40,6 +40,19 @@ fn advance(tokens: &Vec<Token>, offset: &mut usize) {
     }
 }
 
+fn do_expressions(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source: &SourceCode) {
+    if tokens[*offset].token_type != TokenType::CloseParenthesis {
+        expression(compiler, tokens, offset, chunk, source);
+        // Just keep evaluating in the current scope until we run out
+        while tokens[*offset].token_type != TokenType::CloseParenthesis {
+            // Pop all but the last value off the stack again
+            let token = &tokens[*offset];
+            chunk.write_code(OpCode::Pop, token.line);
+            expression(compiler, tokens, offset, chunk, source);
+        }
+    }
+}
+
 fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source: &SourceCode) {
     compiler.sexp_depth += 1;
     advance(tokens, offset);
@@ -81,8 +94,7 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             }
             consume_token(tokens, offset, &TokenType::CloseParenthesis, source);
             // Eval the inner expressions
-            // TODO allow for several expressions
-            expression(compiler, tokens, offset, chunk, source);
+            do_expressions(compiler, tokens, offset, chunk, source);
             // Zap the local scope off the stack when it ends
             compiler.scope_depth -= 1;
             let local_count = compiler.locals.len();
@@ -106,7 +118,7 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             // Pop the conditional value
             chunk.write_code(OpCode::Pop, token.line);
             // Eval the body
-            expression(compiler, tokens, offset, chunk, source);
+            do_expressions(compiler, tokens, offset, chunk, source);
             // Backpatch the end of the body into the JMP instruction
             chunk.backpatch_jump(jmp_idx);
         } else if fn_name.as_str() == "if" {
@@ -174,7 +186,7 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             let loop_end_jmp_idx = chunk.code.len() - 1;
             chunk.write_code(OpCode::Pop, token.line);
             // Eval the body
-            expression(compiler, tokens, offset, chunk, source);
+            do_expressions(compiler, tokens, offset, chunk, source);
             // Jump back to the condition
             chunk.write_code(OpCode::Jump(loop_start_idx), token.line);
             // Jump to here if we're done looping
@@ -182,15 +194,7 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             chunk.write_code(OpCode::Pop, token.line);
         } else if fn_name.as_str() == "do" {
             advance(tokens, offset);
-            if tokens[*offset].token_type != TokenType::CloseParenthesis {
-                expression(compiler, tokens, offset, chunk, source);
-                // Just keep evaluating in the current scope until we run out
-                while tokens[*offset].token_type != TokenType::CloseParenthesis {
-                    // Pop all but the last value off the stack again
-                    chunk.write_code(OpCode::Pop, token.line);
-                    expression(compiler, tokens, offset, chunk, source);
-                }
-            }
+            do_expressions(compiler, tokens, offset, chunk, source);
         } else {
             advance(tokens, offset);
             while tokens[*offset].token_type != TokenType::CloseParenthesis {

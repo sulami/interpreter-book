@@ -187,6 +187,8 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             chunk.write_code(OpCode::Pop, token.line);
             // Eval the body
             do_expressions(compiler, tokens, offset, chunk, source);
+            // Discard the last value
+            chunk.write_code(OpCode::Pop, token.line);
             // Jump back to the condition
             chunk.write_code(OpCode::Jump(loop_start_idx), token.line);
             // Jump to here if we're done looping

@@ -296,6 +296,7 @@ impl VM {
                         Some(v) => {
                             let name = chunk.read_constant(*ptr);
                             self.globals.insert(name.to_string(), v);
+                            self.stack.push(Value::Symbol(name.to_string()));
                         },
                         None => break InterpretResult::RuntimeError("Empty stack"),
                     }
@@ -307,7 +308,9 @@ impl VM {
                         None => break InterpretResult::RuntimeError("Symbol not found"),
                     }
                 }
-                OpCode::DefineLocal(_ptr) => {
+                OpCode::DefineLocal(ptr) => {
+                    let name = chunk.read_constant(*ptr);
+                    self.stack.push(Value::Symbol(name.to_string()));
                 }
                 OpCode::GetLocal(idx) => self.stack.push(self.stack[*idx].clone()),
                 OpCode::Jump(ptr) => self.ip = *ptr,

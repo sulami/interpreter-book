@@ -98,16 +98,16 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
                 }
             }
         } else if fn_name.as_str() == "when" {
-            // Write a provisional JMP instruction and note the position
-            chunk.write_code(OpCode::JumpIfFalse(0), token.line);
-            let jmp_idx = chunk.code.len() - 1;
             advance(tokens, offset);
             // Eval the condition onto the stack
             expression(compiler, tokens, offset, chunk, source);
+            // Write a provisional JMP instruction and note the position
+            chunk.write_code(OpCode::JumpIfFalse(0), token.line);
+            let jmp_idx = chunk.code.len() - 1;
             // Eval the body
             expression(compiler, tokens, offset, chunk, source);
             // Backpatch the end of the body into the JMP instruction
-            chunk.code[jmp_idx] = OpCode::JumpIfFalse(chunk.code.len());
+            chunk.code[jmp_idx] = OpCode::JumpIfFalse(chunk.code.len() - 1);
         } else {
             advance(tokens, offset);
             while tokens[*offset].token_type != TokenType::CloseParenthesis {

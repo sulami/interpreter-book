@@ -11,6 +11,17 @@ pub enum Value {
 }
 
 impl Value {
+    fn truthy(&self) -> bool {
+        match self {
+            Value::Nil => false,
+            Value::Bool(false) => false,
+            Value::Int(0) => false,
+            Value::Float(f) => *f == 0.0,
+            Value::String(s) => s.is_empty(),
+            _ => true,
+        }
+    }
+
     fn negate(&self) -> Option<Value> {
         match self {
             Value::Int(x) => Some(Value::Int(-x)),
@@ -288,7 +299,15 @@ impl VM {
                 OpCode::GetLocal(idx) => {
                     self.stack.push(self.stack[*idx].clone());
                 }
-                OpCode::JumpIfFalse(_ptr) => {
+                OpCode::JumpIfFalse(ptr) => {
+                    match self.stack.pop() {
+                        Some(v) => {
+                            if !v.truthy() {
+                                self.ip = *ptr;
+                            }
+                        }
+                        None => break InterpretResult::RuntimeError("Empty stack"),
+                    }
                 }
                 OpCode::Negate => {
                     match self.stack.pop() {

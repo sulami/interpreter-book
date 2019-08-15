@@ -200,12 +200,12 @@ impl Chunk {
             print!("{:04x} {:>5} ", index, &self.lines[index]);
         };
         match instruction {
-            OpCode::Constant(ptr) => println!("CONSTANT \t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
-            OpCode::DefineGlobal(ptr) => println!("DEF GLOBAL\t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
-            OpCode::GetGlobal(ptr) => println!("GET GLOBAL\t[{}] =>\t{:?}", ptr, self.read_constant(*ptr)),
-            OpCode::DefineLocal(ptr) => println!("DEF LOCAL\t[{}]", ptr),
-            OpCode::GetLocal(ptr) => println!("GET LOCAL\t[{}]", ptr),
-            OpCode::JumpIfFalse(ptr) => println!("JMP IF F\t[{}]", ptr),
+            OpCode::Constant(ptr) => println!("CONSTANT \t[{:04}] =>\t{:?}", ptr, self.read_constant(*ptr)),
+            OpCode::DefineGlobal(ptr) => println!("DEF GLOBAL\t[{:04}] =>\t{:?}", ptr, self.read_constant(*ptr)),
+            OpCode::GetGlobal(ptr) => println!("GET GLOBAL\t[{:04}] =>\t{:?}", ptr, self.read_constant(*ptr)),
+            OpCode::DefineLocal(ptr) => println!("DEF LOCAL\t[{:04x}]", ptr),
+            OpCode::GetLocal(ptr) => println!("GET LOCAL\t[{:04x}]", ptr),
+            OpCode::JumpIfFalse(ptr) => println!("JMP IF F\t[{:04x}]", ptr),
             OpCode::Negate => println!("NEGATE"),
             OpCode::Add => println!("ADD"),
             OpCode::Subtract => println!("SUBTRACT"),
@@ -217,7 +217,7 @@ impl Chunk {
             OpCode::LessThan => println!("LT"),
             OpCode::Print => println!("PRINT"),
             OpCode::Pop => println!("POP"),
-            OpCode::Zap(ptr) => println!("ZAP\t\t[{}]", ptr),
+            OpCode::Zap(ptr) => println!("ZAP\t\t[{:04}]", ptr),
             OpCode::Return => println!("RETURN"),
         }
     }

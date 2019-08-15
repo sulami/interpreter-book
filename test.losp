@@ -38,6 +38,10 @@
 (when true
   (print true))
 
+(print "when returns a value:")
+(print (when true
+         true))
+
 (print "if happy path works:")
 (if true
     (print true)
@@ -47,3 +51,8 @@
 (if false
     (print false)
     (print true))
+
+(print "if returns a value:")
+(print (if true
+           true
+           false))

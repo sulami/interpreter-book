@@ -224,12 +224,6 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
         }
         consume_token(tokens, offset, &TokenType::CloseParenthesis, source);
         compiler.sexp_depth -= 1;
-        // Wipe the stack if we're back the top level
-        // This prevents returned values from top-level expressions from going
-        // zombie on the stack
-        if compiler.sexp_depth == 0 {
-            chunk.write_code(OpCode::Wipe, token.line);
-        }
     } else {
         report_error(token, source, "Function name must be a symbol")
     }

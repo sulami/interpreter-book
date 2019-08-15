@@ -258,7 +258,7 @@ pub enum InterpretResult<'a> {
 impl VM {
     fn print_state(&self) {
         println!("== vm state ==");
-        println!("ip: {}", self.ip);
+        println!("ip: {:04x}", self.ip);
         println!("stack: {:?}", self.stack);
         println!("globals: {:?}", self.globals);
     }

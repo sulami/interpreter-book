@@ -160,6 +160,7 @@ pub enum OpCode {
     Print,
     Pop,
     Zap(usize),
+    Wipe,
     Return,
 }
 
@@ -240,6 +241,7 @@ impl Chunk {
             OpCode::Print => println!("PRINT"),
             OpCode::Pop => println!("POP"),
             OpCode::Zap(ptr) => println!("ZAP\t\t[{:04}]", ptr),
+            OpCode::Wipe => println!("WIPE"),
             OpCode::Return => println!("RETURN"),
         }
     }
@@ -409,7 +411,10 @@ impl VM {
                 }
                 OpCode::Print => {
                     match self.stack.pop() {
-                        Some(c) => println!("{}", c), // TODO raw print without newline
+                        Some(c) => {
+                            println!("{}", c); // TODO raw print without newline
+                            self.stack.push(Value::Nil);
+                        }
                         None => break InterpretResult::RuntimeError("Empty stack"),
                     }
                 }
@@ -424,6 +429,7 @@ impl VM {
                     }
                     self.stack.remove(*ptr);
                 }
+                OpCode::Wipe => self.stack.clear(),
                 OpCode::Return => {
                     match self.stack.pop() {
                         Some(c) => println!("{}", c),

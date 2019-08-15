@@ -20,6 +20,7 @@ struct LocalVar {
 struct Compiler {
     locals: Vec<LocalVar>,
     scope_depth: usize,
+    sexp_depth: usize,
 }
 
 fn report_error(error_token: &Token, source: &SourceCode, message: &str) {
@@ -40,6 +41,7 @@ fn advance(tokens: &Vec<Token>, offset: &mut usize) {
 }
 
 fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk: &mut Chunk, source: &SourceCode) {
+    compiler.sexp_depth += 1;
     advance(tokens, offset);
     let token = &tokens[*offset];
     if token.token_type == TokenType::Symbol {
@@ -180,9 +182,14 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             chunk.write_code(OpCode::Pop, token.line);
         } else if fn_name.as_str() == "do" {
             advance(tokens, offset);
-            // Just keep evaluating in the current scope until we run out
-            while tokens[*offset].token_type != TokenType::CloseParenthesis {
+            if tokens[*offset].token_type != TokenType::CloseParenthesis {
                 expression(compiler, tokens, offset, chunk, source);
+                // Just keep evaluating in the current scope until we run out
+                while tokens[*offset].token_type != TokenType::CloseParenthesis {
+                    // Pop all but the last value off the stack again
+                    chunk.write_code(OpCode::Pop, token.line);
+                    expression(compiler, tokens, offset, chunk, source);
+                }
             }
         } else {
             advance(tokens, offset);
@@ -212,6 +219,13 @@ fn sexp(compiler: &mut Compiler, tokens: &Vec<Token>, offset: &mut usize, chunk:
             }
         }
         consume_token(tokens, offset, &TokenType::CloseParenthesis, source);
+        compiler.sexp_depth -= 1;
+        // Wipe the stack if we're back the top level
+        // This prevents returned values from top-level expressions from going
+        // zombie on the stack
+        if compiler.sexp_depth == 0 {
+            chunk.write_code(OpCode::Wipe, token.line);
+        }
     } else {
         report_error(token, source, "Function name must be a symbol")
     }
@@ -284,6 +298,9 @@ fn expression(compiler: &mut Compiler,
             advance(tokens, offset);
         }
     };
+    if compiler.sexp_depth == 0 {
+        chunk.write_code(OpCode::Wipe, token.line);
+    }
 }
 
 fn consume_token(tokens: &Vec<Token>, offset: &mut usize,
@@ -297,7 +314,7 @@ fn consume_token(tokens: &Vec<Token>, offset: &mut usize,
 }
 
 fn compile(source: String) -> Option<Chunk> {
-    let mut compiler = Compiler{locals: vec![], scope_depth: 0};
+    let mut compiler = Compiler{locals: vec![], scope_depth: 0, sexp_depth: 0};
     let source_chars: SourceCode = source.chars().collect();
     let tokens = scanner::scan(&source_chars, false);
     let mut chunk = Chunk{

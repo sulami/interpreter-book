@@ -22,94 +22,91 @@ impl Value {
         }
     }
 
-    fn negate(&self) -> Option<Value> {
+    fn negate(&self) -> Result<Value, String> {
         match self {
-            Value::Int(x) => Some(Value::Int(-x)),
-            Value::Float(x) => Some(Value::Float(-x)),
-            _ => None,
+            Value::Int(x) => Ok(Value::Int(-x)),
+            Value::Float(x) => Ok(Value::Float(-x)),
+            _ => Err(format!("Cannot negate {}", self)),
         }
     }
 
-    fn add(&self, other: Value) -> Option<Value> {
+    fn add(&self, other: &Value) -> Result<Value, String> {
         match (self, other) {
             // float & float -> float
-            (Value::Float(a), Value::Float(b)) => Some(Value::Float(a+b)),
+            (Value::Float(a), Value::Float(b)) => Ok(Value::Float(*a + *b)),
             // float & int -> float
-            (Value::Int(a), Value::Float(b)) => Some(Value::Float(*a as f64 + b)),
-            (Value::Float(a), Value::Int(b)) => Some(Value::Float(a + b as f64)),
+            (Value::Int(a), Value::Float(b)) => Ok(Value::Float(*a as f64 + *b)),
+            (Value::Float(a), Value::Int(b)) => Ok(Value::Float(a + *b as f64)),
             // int & int -> int
-            (Value::Int(a), Value::Int(b)) => Some(Value::Int(a+b)),
-            _ => None,
+            (Value::Int(a), Value::Int(b)) => Ok(Value::Int(*a + *b)),
+            _ => Err(format!("Cannot add {} to {}", other, self)),
         }
     }
 
-    fn subtract(&self, other: Value) -> Option<Value> {
+    fn subtract(&self, other: &Value) -> Result<Value, String> {
         match (self, other) {
             // float & float -> float
-            (Value::Float(a), Value::Float(b)) => Some(Value::Float(a-b)),
+            (Value::Float(a), Value::Float(b)) => Ok(Value::Float(*a - *b)),
             // float & int -> float
-            (Value::Int(a), Value::Float(b)) => Some(Value::Float(*a as f64 - b)),
-            (Value::Float(a), Value::Int(b)) => Some(Value::Float(a - b as f64)),
+            (Value::Int(a), Value::Float(b)) => Ok(Value::Float(*a as f64 - *b)),
+            (Value::Float(a), Value::Int(b)) => Ok(Value::Float(*a - *b as f64)),
             // int & int -> int
-            (Value::Int(a), Value::Int(b)) => Some(Value::Int(a-b)),
-            _ => None,
+            (Value::Int(a), Value::Int(b)) => Ok(Value::Int(*a - *b)),
+            _ => Err(format!("Cannot subtract {} from {}", other, self)),
         }
     }
 
-    fn multiply(&self, other: Value) -> Option<Value> {
+    fn multiply(&self, other: &Value) -> Result<Value, String> {
         match (self, other) {
             // float & float -> float
-            (Value::Float(a), Value::Float(b)) => Some(Value::Float(a*b)),
+            (Value::Float(a), Value::Float(b)) => Ok(Value::Float(*a * *b)),
             // float & int -> float
-            (Value::Int(a), Value::Float(b)) => Some(Value::Float(*a as f64 * b)),
-            (Value::Float(a), Value::Int(b)) => Some(Value::Float(a * b as f64)),
+            (Value::Int(a), Value::Float(b)) => Ok(Value::Float(*a as f64 * *b)),
+            (Value::Float(a), Value::Int(b)) => Ok(Value::Float(*a * *b as f64)),
             // int & int -> int
-            (Value::Int(a), Value::Int(b)) => Some(Value::Int(a*b)),
-            _ => None,
+            (Value::Int(a), Value::Int(b)) => Ok(Value::Int(*a * *b)),
+            _ => Err(format!("Cannot multiply {} with {}", other, self)),
         }
     }
 
-    fn divide(&self, other: Value) -> Option<Value> {
+    fn divide(&self, other: &Value) -> Result<Value, String> {
         match (self, other) {
             // float & float -> float
-            (Value::Float(a), Value::Float(b)) => Some(Value::Float(a/b)),
+            (Value::Float(a), Value::Float(b)) => Ok(Value::Float(*a / *b)),
             // float & int -> float
-            (Value::Int(a), Value::Float(b)) => Some(Value::Float(*a as f64 / b)),
-            (Value::Float(a), Value::Int(b)) => Some(Value::Float(a / b as f64)),
+            (Value::Int(a), Value::Float(b)) => Ok(Value::Float(*a as f64 / *b)),
+            (Value::Float(a), Value::Int(b)) => Ok(Value::Float(*a / *b as f64)),
             // int & int -> also float
-            (Value::Int(a), Value::Int(b)) => Some(Value::Float(*a as f64 / b as f64)),
-            _ => None,
+            (Value::Int(a), Value::Int(b)) => Ok(Value::Float(*a as f64 / *b as f64)),
+            _ => Err(format!("Cannot divide {} by {}", other, self)),
         }
     }
 
-    fn not(&self) -> Option<Value> {
-        match self {
-            Value::Bool(b) => Some(Value::Bool(!b)),
-            _ => None,
-        }
+    fn not(&self) -> Value {
+        Value::Bool(!self.truthy())
     }
 
-    fn equal(&self, other: Value) -> Option<Value> {
-        Some(Value::Bool(*self == other))
+    fn equal(&self, other: &Value) -> Value {
+        Value::Bool(*self == *other)
     }
 
-    fn greater_than(&self, other: Value) -> Option<Value> {
+    fn greater_than(&self, other: &Value) -> Result<Value, String> {
         match (self, other) {
-            (Value::Int(a), Value::Int(b)) => Some(Value::Bool(*a > b)),
-            (Value::Int(a), Value::Float(b)) => Some(Value::Bool((*a as f64) > b)),
-            (Value::Float(a), Value::Int(b)) => Some(Value::Bool(*a > b as f64)),
-            (Value::Float(a), Value::Float(b)) => Some(Value::Bool(*a > b)),
-            _ => None,
+            (Value::Int(a), Value::Int(b)) => Ok(Value::Bool(*a > *b)),
+            (Value::Int(a), Value::Float(b)) => Ok(Value::Bool((*a as f64) > *b)),
+            (Value::Float(a), Value::Int(b)) => Ok(Value::Bool(*a > *b as f64)),
+            (Value::Float(a), Value::Float(b)) => Ok(Value::Bool(*a > *b)),
+            _ => Err(format!("Cannot compare {} with {}", other, self)),
         }
     }
 
-    fn less_than(&self, other: Value) -> Option<Value> {
+    fn less_than(&self, other: &Value) -> Result<Value, String> {
         match (self, other) {
-            (Value::Int(a), Value::Int(b)) => Some(Value::Bool(*a < b)),
-            (Value::Int(a), Value::Float(b)) => Some(Value::Bool((*a as f64) < b)),
-            (Value::Float(a), Value::Int(b)) => Some(Value::Bool(*a < b as f64)),
-            (Value::Float(a), Value::Float(b)) => Some(Value::Bool(*a < b)),
-            _ => None,
+            (Value::Int(a), Value::Int(b)) => Ok(Value::Bool(*a < *b)),
+            (Value::Int(a), Value::Float(b)) => Ok(Value::Bool((*a as f64) < *b)),
+            (Value::Float(a), Value::Int(b)) => Ok(Value::Bool(*a < *b as f64)),
+            (Value::Float(a), Value::Float(b)) => Ok(Value::Bool(*a < *b)),
+            _ => Err(format!("Cannot compare {} with {}", other, self)),
         }
     }
 }
@@ -332,74 +329,53 @@ impl VM {
                 }
                 OpCode::Negate => {
                     let v = try!(self.pop());
-                    match v.negate() {
-                        Some(v) => self.stack.push(v),
-                        // TODO Result this
-                        None => break runtime_error("Type error"),
-                    }
+                    let nv = try!(v.negate());
+                    self.stack.push(nv);
                 }
                 OpCode::Add => {
                     let a = try!(self.pop());
                     let b = try!(self.pop());
-                    match b.add(a) {
-                        Some(v) => self.stack.push(v),
-                        None => break runtime_error("Type error"),
-                    }
+                    let v = try!(b.add(&a));
+                    self.stack.push(v);
                 }
                 OpCode::Subtract => {
                     let a = try!(self.pop());
                     let b = try!(self.pop());
-                    match b.subtract(a) {
-                        Some(v) => self.stack.push(v),
-                        None => break runtime_error("Type error"),
-                    }
+                    let v = try!(b.subtract(&a));
+                    self.stack.push(v);
                 }
                 OpCode::Multiply => {
                     let a = try!(self.pop());
                     let b = try!(self.pop());
-                    match b.multiply(a) {
-                        Some(v) => self.stack.push(v),
-                        None => break runtime_error("Type error"),
-                    }
+                    let v = try!(b.multiply(&a));
+                    self.stack.push(v);
                 }
                 OpCode::Divide => {
                     let a = try!(self.pop());
                     let b = try!(self.pop());
-                    match b.divide(a) {
-                        Some(v) => self.stack.push(v),
-                        None => break runtime_error("Type error"),
-                    }
+                    let v = try!(b.divide(&a));
+                    self.stack.push(v);
                 }
                 OpCode::Not => {
                     let b = try!(self.pop());
-                    match b.not() {
-                        Some(v) => self.stack.push(v),
-                        None => break runtime_error("Type error"),
-                    }
+                    self.stack.push(b.not());
                 }
                 OpCode::Equal => {
                     let a = try!(self.pop());
                     let b = try!(self.pop());
-                    match b.equal(a) {
-                        Some(v) => self.stack.push(v),
-                        None => break runtime_error("Type error"),
-                    }
+                    self.stack.push(b.equal(&a));
                 }
                 OpCode::GreaterThan => {
                     let a = try!(self.pop());
                     let b = try!(self.pop());
-                    match b.greater_than(a) {
-                        Some(v) => self.stack.push(v),
-                        None => break runtime_error("Type error"),
-                    }
+                    let v = try!(b.greater_than(&a));
+                    self.stack.push(v);
                 }
                 OpCode::LessThan => {
                     let a = try!(self.pop());
                     let b = try!(self.pop());
-                    match b.less_than(a) {
-                        Some(v) => self.stack.push(v),
-                        None => break runtime_error("Type error"),
-                    }
+                    let v = try!(b.less_than(&a));
+                    self.stack.push(v);
                 }
                 OpCode::Print => {
                     let c = try!(self.pop());
@@ -411,7 +387,7 @@ impl VM {
                 }
                 OpCode::Zap(ptr) => {
                     if self.stack.len() <= *ptr {
-                        break runtime_error("Zap out of bounds")
+                        return runtime_error("Zap out of bounds")
                     }
                     self.stack.remove(*ptr);
                 }

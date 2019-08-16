@@ -260,10 +260,8 @@ pub struct VM {
     globals: HashMap<String, Value>,
 }
 
-pub enum InterpretResult<'a> {
-    OK,
-    CompileError,
-    RuntimeError(&'a str),
+fn runtime_error(msg: &str) -> Result<(), String> {
+    Err(String::from(msg))
 }
 
 impl VM {
@@ -274,7 +272,7 @@ impl VM {
         println!("globals: {:?}", self.globals);
     }
 
-    pub fn interpret<'a>(&mut self, chunk: Chunk, debug: bool) -> InterpretResult<'a> {
+    pub fn interpret<'a>(&mut self, chunk: Chunk, debug: bool) -> Result<(), String> {
         self.ip = 0;
         self.stack = vec![];
         loop {
@@ -285,7 +283,7 @@ impl VM {
                 if debug {
                     self.print_state();
                 }
-                break InterpretResult::OK;
+                break Ok(())
             }
             match &chunk.code[self.ip] {
                 OpCode::Constant(ptr) => {
@@ -298,14 +296,14 @@ impl VM {
                             self.globals.insert(name.to_string(), v);
                             self.stack.push(Value::Symbol(name.to_string()));
                         },
-                        None => break InterpretResult::RuntimeError("Empty stack"),
+                        None => break runtime_error("Empty stack"),
                     }
                 }
                 OpCode::GetGlobal(ptr) => {
                     let name = chunk.read_constant(*ptr);
                     match self.globals.get(&name.to_string()) {
                         Some(v) => self.stack.push(v.clone()),
-                        None => break InterpretResult::RuntimeError("Symbol not found"),
+                        None => break runtime_error("Symbol not found"),
                     }
                 }
                 OpCode::DefineLocal(ptr) => {
@@ -321,95 +319,95 @@ impl VM {
                                 self.ip = *ptr;
                             }
                         }
-                        None => break InterpretResult::RuntimeError("Empty stack"),
+                        None => break runtime_error("Empty stack"),
                     }
                 }
                 OpCode::Negate => {
                     match self.stack.pop() {
                         Some(v) => match v.negate() {
                             Some(v) => self.stack.push(v),
-                            None => break InterpretResult::RuntimeError("Type error"),
+                            None => break runtime_error("Type error"),
                         }
-                        None => break InterpretResult::RuntimeError("Empty stack"),
+                        None => break runtime_error("Empty stack"),
                     }
                 }
                 OpCode::Add => {
                     match (self.stack.pop(), self.stack.pop()) {
                         (Some(a), Some(b)) => match b.add(a) {
                             Some(v) => self.stack.push(v),
-                            None => break InterpretResult::RuntimeError("Type error"),
+                            None => break runtime_error("Type error"),
                         }
-                        (_, None) => break InterpretResult::RuntimeError("Empty stack"),
-                        (None, _) => break InterpretResult::RuntimeError("Empty stack"),
+                        (_, None) => break runtime_error("Empty stack"),
+                        (None, _) => break runtime_error("Empty stack"),
                     }
                 }
                 OpCode::Subtract => {
                     match (self.stack.pop(), self.stack.pop()) {
                         (Some(a), Some(b)) => match b.subtract(a) {
                             Some(v) => self.stack.push(v),
-                            None => break InterpretResult::RuntimeError("Type error"),
+                            None => break runtime_error("Type error"),
                         }
-                        (_, None) => break InterpretResult::RuntimeError("Empty stack"),
-                        (None, _) => break InterpretResult::RuntimeError("Empty stack"),
+                        (_, None) => break runtime_error("Empty stack"),
+                        (None, _) => break runtime_error("Empty stack"),
                     }
                 }
                 OpCode::Multiply => {
                     match (self.stack.pop(), self.stack.pop()) {
                         (Some(a), Some(b)) => match b.multiply(a) {
                             Some(v) => self.stack.push(v),
-                            None => break InterpretResult::RuntimeError("Type error"),
+                            None => break runtime_error("Type error"),
                         }
-                        (_, None) => break InterpretResult::RuntimeError("Empty stack"),
-                        (None, _) => break InterpretResult::RuntimeError("Empty stack"),
+                        (_, None) => break runtime_error("Empty stack"),
+                        (None, _) => break runtime_error("Empty stack"),
                     }
                 }
                 OpCode::Divide => {
                     match (self.stack.pop(), self.stack.pop()) {
                         (Some(a), Some(b)) => match b.divide(a) {
                             Some(v) => self.stack.push(v),
-                            None => break InterpretResult::RuntimeError("Type error"),
+                            None => break runtime_error("Type error"),
                         }
-                        (_, None) => break InterpretResult::RuntimeError("Empty stack"),
-                        (None, _) => break InterpretResult::RuntimeError("Empty stack"),
+                        (_, None) => break runtime_error("Empty stack"),
+                        (None, _) => break runtime_error("Empty stack"),
                     }
                 }
                 OpCode::Not => {
                     match self.stack.pop() {
                         Some(b) => match b.not() {
                             Some(v) => self.stack.push(v),
-                            None => break InterpretResult::RuntimeError("Type error"),
+                            None => break runtime_error("Type error"),
                         }
-                        None => break InterpretResult::RuntimeError("Empty stack"),
+                        None => break runtime_error("Empty stack"),
                     }
                 }
                 OpCode::Equal => {
                     match (self.stack.pop(), self.stack.pop()) {
                         (Some(a), Some(b)) => match b.equal(a) {
                             Some(v) => self.stack.push(v),
-                            None => break InterpretResult::RuntimeError("Type error"),
+                            None => break runtime_error("Type error"),
                         }
-                        (_, None) => break InterpretResult::RuntimeError("Empty stack"),
-                        (None, _) => break InterpretResult::RuntimeError("Empty stack"),
+                        (_, None) => break runtime_error("Empty stack"),
+                        (None, _) => break runtime_error("Empty stack"),
                     }
                 }
                 OpCode::GreaterThan => {
                     match (self.stack.pop(), self.stack.pop()) {
                         (Some(a), Some(b)) => match b.greater_than(a) {
                             Some(v) => self.stack.push(v),
-                            None => break InterpretResult::RuntimeError("Type error"),
+                            None => break runtime_error("Type error"),
                         }
-                        (_, None) => break InterpretResult::RuntimeError("Empty stack"),
-                        (None, _) => break InterpretResult::RuntimeError("Empty stack"),
+                        (_, None) => break runtime_error("Empty stack"),
+                        (None, _) => break runtime_error("Empty stack"),
                     }
                 }
                 OpCode::LessThan => {
                     match (self.stack.pop(), self.stack.pop()) {
                         (Some(a), Some(b)) => match b.less_than(a) {
                             Some(v) => self.stack.push(v),
-                            None => break InterpretResult::RuntimeError("Type error"),
+                            None => break runtime_error("Type error"),
                         }
-                        (_, None) => break InterpretResult::RuntimeError("Empty stack"),
-                        (None, _) => break InterpretResult::RuntimeError("Empty stack"),
+                        (_, None) => break runtime_error("Empty stack"),
+                        (None, _) => break runtime_error("Empty stack"),
                     }
                 }
                 OpCode::Print => {
@@ -418,17 +416,17 @@ impl VM {
                             println!("{}", c); // TODO raw print without newline
                             self.stack.push(Value::Nil);
                         }
-                        None => break InterpretResult::RuntimeError("Empty stack"),
+                        None => break runtime_error("Empty stack"),
                     }
                 }
                 OpCode::Pop => {
                     if self.stack.pop().is_none() {
-                        break InterpretResult::RuntimeError("Empty stack");
+                        break runtime_error("Empty stack");
                     }
                 }
                 OpCode::Zap(ptr) => {
                     if self.stack.len() <= *ptr {
-                        break InterpretResult::RuntimeError("Zap out of bounds")
+                        break runtime_error("Zap out of bounds")
                     }
                     self.stack.remove(*ptr);
                 }
@@ -436,7 +434,7 @@ impl VM {
                 OpCode::Return => {
                     match self.stack.pop() {
                         Some(c) => println!("{}", c),
-                        None => break InterpretResult::RuntimeError("Empty stack"),
+                        None => break runtime_error("Empty stack"),
                     }
                 }
             };

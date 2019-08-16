@@ -7,7 +7,7 @@ use std::fs::File;
 mod compiler;
 
 use compiler::interpret;
-use compiler::vm::{InterpretResult, init_vm};
+use compiler::vm::init_vm;
 
 fn repl(debug: bool) -> Result<()> {
     let mut vm = init_vm();
@@ -21,8 +21,7 @@ fn repl(debug: bool) -> Result<()> {
             break;
         }
         match interpret(&mut vm, input, debug) {
-            InterpretResult::CompileError => println!("Compile error"),
-            InterpretResult::RuntimeError(msg) => println!("{}", msg),
+            Err(msg) => println!("{}", msg),
             _ => (),
         }
     }
@@ -36,11 +35,10 @@ fn run_file(path: &String, debug: bool) -> Result<()> {
     buf_reader.read_to_string(&mut source)?;
     let mut vm = init_vm();
     match interpret(&mut vm, source, debug) {
-        InterpretResult::OK => Ok(()),
-        InterpretResult::CompileError => std::process::exit(65),
-        InterpretResult::RuntimeError(msg) => {
+        Ok(_) => Ok(()),
+        Err(msg) => {
             println!("{}", msg);
-            std::process::exit(70);
+            std::process::exit(65);
         }
     }
 }

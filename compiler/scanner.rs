@@ -25,6 +25,12 @@ pub enum TokenType {
     Error(ScanError),
 }
 
+impl std::fmt::Display for TokenType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 pub type Line = u32;
 
 #[derive(Debug)]

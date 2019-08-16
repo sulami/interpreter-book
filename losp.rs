@@ -16,7 +16,7 @@ fn repl(debug: bool) -> Result<()> {
         let _ = std::io::stdout().flush();
         let mut input = String::new();
         let _ = std::io::stdin().read_line(&mut input);
-        if input == "\n" {
+        if input == "" {
             println!("");
             break;
         }
@@ -45,18 +45,38 @@ fn run_file(path: &String, debug: bool) -> Result<()> {
     }
 }
 
+fn usage() -> Result<()> {
+    let name = "losp";
+    println!("usage:");
+    println!("{} repl         - start repl", name);
+    println!("{} depl         - start debug repl", name);
+    println!("{} run <file>   - run file", name);
+    println!("{} debug <file> - debug file", name);
+    std::process::exit(64)
+}
+
 fn main() -> Result<()> {
-    let opts = std::env::args();
-    match opts.len() {
-        1 => repl(false),
-        2 => run_file(&opts.last().expect("the world is ending"), false),
-        3 => run_file(&opts.last().expect("the world is ending"), true),
-        _ => {
-            let name = "losp";
-            println!("useage:");
-            println!("{}        - start repl", name);
-            println!("{} <file> - run file", name);
-            std::process::exit(64);
+    let mut opts = std::env::args();
+    if opts.len() < 2 {
+        let _ = usage();
+    };
+    match opts.nth(1).unwrap().as_str() {
+        "repl"  => repl(false),
+        "depl"  => repl(true),
+        "run"   => {
+            if opts.len() == 3 {
+                run_file(&opts.last().unwrap(), false)
+            } else {
+                usage()
+            }
         }
+        "debug" => {
+            if opts.len() == 3 {
+                run_file(&opts.last().unwrap(), true)
+            } else {
+                usage()
+            }
+        }
+        _       => usage(),
     }
 }

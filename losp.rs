@@ -61,22 +61,22 @@ fn main() -> Result<()> {
         let _ = usage();
     };
     match opts.nth(1).unwrap().as_str() {
-        "repl"  => repl(false),
-        "depl"  => repl(true),
-        "run"   => {
-            if opts.len() == 3 {
+        "repl" => repl(false),
+        "depl" => repl(true),
+        "run" => {
+            if opts.len() == 1 {
                 run_file(&opts.last().unwrap(), false)
             } else {
                 usage()
             }
         }
         "debug" => {
-            if opts.len() == 3 {
+            if opts.len() == 1 {
                 run_file(&opts.last().unwrap(), true)
             } else {
                 usage()
             }
         }
-        _       => usage(),
+        _ => usage(),
     }
 }

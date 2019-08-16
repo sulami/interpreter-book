@@ -272,6 +272,22 @@ impl VM {
         println!("globals: {:?}", self.globals);
     }
 
+    fn pop(&mut self) -> Result<Value, String> {
+        if self.stack.is_empty() {
+            Err(String::from("Empty stack"))
+        } else {
+            Ok(self.stack.pop().unwrap())
+        }
+    }
+
+    fn peek(&mut self) -> Result<&Value, String> {
+        if self.stack.is_empty() {
+            Err(String::from("Empty stack"))
+        } else {
+            Ok(self.stack.last().unwrap())
+        }
+    }
+
     pub fn interpret<'a>(&mut self, chunk: Chunk, debug: bool) -> Result<(), String> {
         self.ip = 0;
         self.stack = vec![];
@@ -290,14 +306,10 @@ impl VM {
                     self.stack.push(chunk.read_constant(*ptr));
                 }
                 OpCode::DefineGlobal(ptr) => {
-                    match self.stack.pop() {
-                        Some(v) => {
-                            let name = chunk.read_constant(*ptr);
-                            self.globals.insert(name.to_string(), v);
-                            self.stack.push(Value::Symbol(name.to_string()));
-                        },
-                        None => break runtime_error("Empty stack"),
-                    }
+                    let v = try!(self.pop());
+                    let name = chunk.read_constant(*ptr);
+                    self.globals.insert(name.to_string(), v);
+                    self.stack.push(Value::Symbol(name.to_string()));
                 }
                 OpCode::GetGlobal(ptr) => {
                     let name = chunk.read_constant(*ptr);
@@ -313,116 +325,89 @@ impl VM {
                 OpCode::GetLocal(idx) => self.stack.push(self.stack[*idx].clone()),
                 OpCode::Jump(ptr) => self.ip = *ptr,
                 OpCode::JumpIfFalse(ptr) => {
-                    match self.stack.last() {
-                        Some(v) => {
-                            if !v.truthy() {
-                                self.ip = *ptr;
-                            }
-                        }
-                        None => break runtime_error("Empty stack"),
+                    let v = try!(self.peek());
+                    if !v.truthy() {
+                        self.ip = *ptr;
                     }
                 }
                 OpCode::Negate => {
-                    match self.stack.pop() {
-                        Some(v) => match v.negate() {
-                            Some(v) => self.stack.push(v),
-                            None => break runtime_error("Type error"),
-                        }
-                        None => break runtime_error("Empty stack"),
+                    let v = try!(self.pop());
+                    match v.negate() {
+                        Some(v) => self.stack.push(v),
+                        // TODO Result this
+                        None => break runtime_error("Type error"),
                     }
                 }
                 OpCode::Add => {
-                    match (self.stack.pop(), self.stack.pop()) {
-                        (Some(a), Some(b)) => match b.add(a) {
-                            Some(v) => self.stack.push(v),
-                            None => break runtime_error("Type error"),
-                        }
-                        (_, None) => break runtime_error("Empty stack"),
-                        (None, _) => break runtime_error("Empty stack"),
+                    let a = try!(self.pop());
+                    let b = try!(self.pop());
+                    match b.add(a) {
+                        Some(v) => self.stack.push(v),
+                        None => break runtime_error("Type error"),
                     }
                 }
                 OpCode::Subtract => {
-                    match (self.stack.pop(), self.stack.pop()) {
-                        (Some(a), Some(b)) => match b.subtract(a) {
-                            Some(v) => self.stack.push(v),
-                            None => break runtime_error("Type error"),
-                        }
-                        (_, None) => break runtime_error("Empty stack"),
-                        (None, _) => break runtime_error("Empty stack"),
+                    let a = try!(self.pop());
+                    let b = try!(self.pop());
+                    match b.subtract(a) {
+                        Some(v) => self.stack.push(v),
+                        None => break runtime_error("Type error"),
                     }
                 }
                 OpCode::Multiply => {
-                    match (self.stack.pop(), self.stack.pop()) {
-                        (Some(a), Some(b)) => match b.multiply(a) {
-                            Some(v) => self.stack.push(v),
-                            None => break runtime_error("Type error"),
-                        }
-                        (_, None) => break runtime_error("Empty stack"),
-                        (None, _) => break runtime_error("Empty stack"),
+                    let a = try!(self.pop());
+                    let b = try!(self.pop());
+                    match b.multiply(a) {
+                        Some(v) => self.stack.push(v),
+                        None => break runtime_error("Type error"),
                     }
                 }
                 OpCode::Divide => {
-                    match (self.stack.pop(), self.stack.pop()) {
-                        (Some(a), Some(b)) => match b.divide(a) {
-                            Some(v) => self.stack.push(v),
-                            None => break runtime_error("Type error"),
-                        }
-                        (_, None) => break runtime_error("Empty stack"),
-                        (None, _) => break runtime_error("Empty stack"),
+                    let a = try!(self.pop());
+                    let b = try!(self.pop());
+                    match b.divide(a) {
+                        Some(v) => self.stack.push(v),
+                        None => break runtime_error("Type error"),
                     }
                 }
                 OpCode::Not => {
-                    match self.stack.pop() {
-                        Some(b) => match b.not() {
-                            Some(v) => self.stack.push(v),
-                            None => break runtime_error("Type error"),
-                        }
-                        None => break runtime_error("Empty stack"),
+                    let b = try!(self.pop());
+                    match b.not() {
+                        Some(v) => self.stack.push(v),
+                        None => break runtime_error("Type error"),
                     }
                 }
                 OpCode::Equal => {
-                    match (self.stack.pop(), self.stack.pop()) {
-                        (Some(a), Some(b)) => match b.equal(a) {
-                            Some(v) => self.stack.push(v),
-                            None => break runtime_error("Type error"),
-                        }
-                        (_, None) => break runtime_error("Empty stack"),
-                        (None, _) => break runtime_error("Empty stack"),
+                    let a = try!(self.pop());
+                    let b = try!(self.pop());
+                    match b.equal(a) {
+                        Some(v) => self.stack.push(v),
+                        None => break runtime_error("Type error"),
                     }
                 }
                 OpCode::GreaterThan => {
-                    match (self.stack.pop(), self.stack.pop()) {
-                        (Some(a), Some(b)) => match b.greater_than(a) {
-                            Some(v) => self.stack.push(v),
-                            None => break runtime_error("Type error"),
-                        }
-                        (_, None) => break runtime_error("Empty stack"),
-                        (None, _) => break runtime_error("Empty stack"),
+                    let a = try!(self.pop());
+                    let b = try!(self.pop());
+                    match b.greater_than(a) {
+                        Some(v) => self.stack.push(v),
+                        None => break runtime_error("Type error"),
                     }
                 }
                 OpCode::LessThan => {
-                    match (self.stack.pop(), self.stack.pop()) {
-                        (Some(a), Some(b)) => match b.less_than(a) {
-                            Some(v) => self.stack.push(v),
-                            None => break runtime_error("Type error"),
-                        }
-                        (_, None) => break runtime_error("Empty stack"),
-                        (None, _) => break runtime_error("Empty stack"),
+                    let a = try!(self.pop());
+                    let b = try!(self.pop());
+                    match b.less_than(a) {
+                        Some(v) => self.stack.push(v),
+                        None => break runtime_error("Type error"),
                     }
                 }
                 OpCode::Print => {
-                    match self.stack.pop() {
-                        Some(c) => {
-                            println!("{}", c); // TODO raw print without newline
-                            self.stack.push(Value::Nil);
-                        }
-                        None => break runtime_error("Empty stack"),
-                    }
+                    let c = try!(self.pop());
+                    println!("{}", c); // TODO raw print without newline
+                    self.stack.push(Value::Nil);
                 }
                 OpCode::Pop => {
-                    if self.stack.pop().is_none() {
-                        break runtime_error("Empty stack");
-                    }
+                    try!(self.pop());
                 }
                 OpCode::Zap(ptr) => {
                     if self.stack.len() <= *ptr {
@@ -432,10 +417,8 @@ impl VM {
                 }
                 OpCode::Wipe => self.stack.clear(),
                 OpCode::Return => {
-                    match self.stack.pop() {
-                        Some(c) => println!("{}", c),
-                        None => break runtime_error("Empty stack"),
-                    }
+                    let c = try!(self.pop());
+                    println!("{}", c);
                 }
             };
             self.ip += 1;

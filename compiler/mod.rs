@@ -326,10 +326,10 @@ fn consume_token(tokens: &Vec<Token>, offset: &mut usize,
     }
 }
 
-fn compile(source: String) -> Result<Chunk, String> {
+fn compile(source: String, debug: bool) -> Result<Chunk, String> {
     let mut compiler = Compiler{locals: vec![], scope_depth: 0, sexp_depth: 0};
     let source_chars: SourceCode = source.chars().collect();
-    let tokens = scanner::scan(&source_chars, false);
+    let tokens = scanner::scan(&source_chars, debug);
     let mut chunk = Chunk{
         code: vec![],
         constants: vec![],
@@ -363,6 +363,6 @@ fn compile(source: String) -> Result<Chunk, String> {
 }
 
 pub fn interpret<'a>(vm: &mut VM, source: String, debug: bool) -> Result<(), String> {
-    let chunk = try!(compile(source));
+    let chunk = try!(compile(source, debug));
     vm.interpret(chunk, debug)
 }

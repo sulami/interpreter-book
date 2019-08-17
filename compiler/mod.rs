@@ -33,7 +33,7 @@ fn advance(tokens: &Vec<Token>, offset: &mut usize) -> Result<(), String> {
        *offset += 1;
         Ok(())
     } else {
-        Err(String::from("Ran out of tokens"))
+        Err(String::from("Unexpected end of file"))
     }
 }
 
@@ -87,7 +87,7 @@ fn sexp(compiler: &mut Compiler,
             // Eval & Setup the bindings
             try!(consume_token(tokens, offset, &TokenType::OpenParenthesis, source));
             while &tokens[*offset].token_type == &TokenType::OpenParenthesis {
-                try!(advance(tokens, offset));
+                try!(consume_token(tokens, offset, &TokenType::OpenParenthesis, source));
                 // TODO error if not a symbol
                 let binding_token = &tokens[*offset];
                 let name = binding_token.get_token(source);
@@ -206,6 +206,7 @@ fn sexp(compiler: &mut Compiler,
             try!(advance(tokens, offset));
             try!(do_expressions(compiler, tokens, offset, chunk, source));
         } else {
+            // One OP functions
             try!(advance(tokens, offset));
             while tokens[*offset].token_type != TokenType::CloseParenthesis {
                 // TODO count number of expressions and pop this many as arguments
@@ -339,7 +340,7 @@ fn compile(source: String, debug: bool) -> Result<Chunk, String> {
     let mut error = String::default();
     let mut offset = 0;
     let token_count = tokens.len();
-    while offset < token_count {
+    while offset < token_count - 1 {
         let token = &tokens[offset];
         if token.is_error() {
             had_error = true;

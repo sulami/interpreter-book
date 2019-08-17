@@ -1,7 +1,7 @@
 mod scanner;
 pub mod vm;
 
-use self::scanner::{Line, Token, TokenType};
+use self::scanner::{Token, TokenType};
 use self::vm::{Chunk, OpCode, Value, VM};
 
 pub type SourceCode = Vec<char>;
@@ -22,10 +22,6 @@ fn report_error(error_token: &Token, source: &SourceCode, message: &str) {
              error_token.get_token(source),
              error_token.line,
              message);
-}
-
-fn emit_byte(chunk: &mut Chunk, op_code: OpCode, line: Line) {
-    chunk.write_code(op_code, line);
 }
 
 fn advance(tokens: &Vec<Token>, offset: &mut usize) -> Result<(), String> {
@@ -355,7 +351,7 @@ fn compile(source: String, debug: bool) -> Result<Chunk, String> {
             }
         }
     }
-    emit_byte(&mut chunk, OpCode::Return, 99);
+    chunk.write_code(OpCode::Return, 99);
     if had_error {
         Err(error)
     } else {

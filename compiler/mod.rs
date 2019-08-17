@@ -54,179 +54,177 @@ fn sexp(compiler: &mut Compiler,
     compiler.sexp_depth += 1;
     try!(advance(tokens, offset));
     let token = &tokens[*offset];
-    if token.token_type == TokenType::Symbol {
-        let fn_name = token.get_token(source);
-        if fn_name.as_str() == "def" {
-            // `def` needs to read ahead because the first arg is a raw symbol
-            try!(advance(tokens, offset));
-            let next_token = &tokens[*offset];
-            if next_token.token_type == TokenType::Symbol {
-                let sym = next_token.get_token(source);
-                try!(advance(tokens, offset));
-                try!(expression(compiler, tokens, offset, chunk, source));
-                let idx = chunk.write_constant(Value::Symbol(sym));
-                chunk.write_code(OpCode::DefineGlobal(idx), token.line);
-            } else {
-                return Err(String::from("Expected symbol for def"));
-            }
-        } else if fn_name.as_str() == "let" {
-            // Setup a new scope
-            try!(advance(tokens, offset));
-            compiler.scope_depth += 1;
-            // Eval & Setup the bindings
-            try!(consume_token(tokens, offset, &TokenType::OpenParenthesis, source));
-            while &tokens[*offset].token_type == &TokenType::OpenParenthesis {
-                try!(consume_token(tokens, offset, &TokenType::OpenParenthesis, source));
-                // TODO error if not a symbol
-                let binding_token = &tokens[*offset];
-                let name = binding_token.get_token(source);
-                try!(advance(tokens, offset));
-                try!(expression(compiler, tokens, offset, chunk, source));
-                // chunk.write_code(OpCode::DefineLocal(compiler.locals.len()), binding_token.line);
-                compiler.locals.append(&mut vec![LocalVar{
-                    name: name.to_string(),
-                    depth: compiler.scope_depth,
-                }]);
-                try!(consume_token(tokens, offset, &TokenType::CloseParenthesis, source));
-            }
-            try!(consume_token(tokens, offset, &TokenType::CloseParenthesis, source));
-            // Eval the inner expressions
-            try!(do_expressions(compiler, tokens, offset, chunk, source));
-            // Zap the local scope off the stack when it ends
-            compiler.scope_depth -= 1;
-            let local_count = compiler.locals.len();
-            for i in 0..local_count {
-                let idx = local_count - i - 1;
-                let l = &compiler.locals[idx];
-                if compiler.scope_depth < l.depth {
-                    compiler.locals.pop();
-                    chunk.write_code(OpCode::Zap(idx), token.line);
-                } else {
-                    break
-                }
-            }
-        } else if fn_name.as_str() == "when" {
-            try!(advance(tokens, offset));
-            // Eval the condition onto the stack
-            try!(expression(compiler, tokens, offset, chunk, source));
-            // Write a provisional JMP instruction and note the position
-            chunk.write_code(OpCode::JumpIfFalse(0), token.line);
-            let jmp_idx = chunk.code.len() - 1;
-            // Pop the conditional value
-            chunk.write_code(OpCode::Pop, token.line);
-            // Eval the body
-            try!(do_expressions(compiler, tokens, offset, chunk, source));
-            // Backpatch the end of the body into the JMP instruction
-            chunk.backpatch_jump(jmp_idx);
-        } else if fn_name.as_str() == "if" {
-            try!(advance(tokens, offset));
-            // Eval the condition onto the stack
-            try!(expression(compiler, tokens, offset, chunk, source));
-            // Write a provisional JMP instruction and note the position
-            chunk.write_code(OpCode::JumpIfFalse(0), token.line);
-            let sad_jmp_idx = chunk.code.len() - 1;
-            // Pop the conditional value on the happy path
-            chunk.write_code(OpCode::Pop, token.line);
-            // Eval the happy path body
-            try!(expression(compiler, tokens, offset, chunk, source));
-            // Write a provisional JMP instruction to pass the sad path
-            chunk.write_code(OpCode::Jump(0), token.line);
-            let happy_jmp_idx = chunk.code.len() - 1;
-            // Pop the conditional value on the sad path
-            chunk.write_code(OpCode::Pop, token.line);
-            // Backpatch the end of the happy path body into the first JMP instruction
-            chunk.backpatch_jump(sad_jmp_idx);
-            // Eval the sad path body
-            try!(expression(compiler, tokens, offset, chunk, source));
-            // Backpatch the end of the sad path body into the second JMP instruction
-            chunk.backpatch_jump(happy_jmp_idx);
-        } else if fn_name.as_str() == "and" {
-            try!(advance(tokens, offset));
-            // TODO implement n-arity
-            // Eval the first argument
-            try!(expression(compiler, tokens, offset, chunk, source));
-            // Write a provisional JMP instruction and note the position
-            chunk.write_code(OpCode::JumpIfFalse(0), token.line);
-            let jmp_idx = chunk.code.len() - 1;
-            chunk.write_code(OpCode::Pop, token.line);
-            // Eval the second argument
-            try!(expression(compiler, tokens, offset, chunk, source));
-            // Backpatch the JMP instruction to skip eval of the second argument
-            // if the first one is falsy
-            chunk.backpatch_jump(jmp_idx);
-        } else if fn_name.as_str() == "or" {
-            try!(advance(tokens, offset));
-            // TODO implement n-arity
-            // Eval the first argument
-            try!(expression(compiler, tokens, offset, chunk, source));
-            // Jump past the next jump if the first arg is falsy
-            chunk.write_code(OpCode::JumpIfFalse(0), token.line);
-            let happy_jmp_idx = chunk.code.len() - 1;
-            // Jump past the second arg otherwise
-            chunk.write_code(OpCode::Jump(0), token.line);
-            let sad_jmp_idx = chunk.code.len() - 1;
-            // The first JMP goes here
-            chunk.backpatch_jump(happy_jmp_idx);
-            chunk.write_code(OpCode::Pop, token.line);
-            // Eval the second argument
-            try!(expression(compiler, tokens, offset, chunk, source));
-            // The second JMP goes here
-            chunk.backpatch_jump(sad_jmp_idx);
-        } else if fn_name.as_str() == "while" {
-            try!(advance(tokens, offset));
-            // Set the loop starting point
-            let loop_start_idx = chunk.code.len() - 1;
-            // Eval the condition
-            try!(expression(compiler, tokens, offset, chunk, source));
-            // This JMP termiates the loop
-            chunk.write_code(OpCode::JumpIfFalse(0), token.line);
-            let loop_end_jmp_idx = chunk.code.len() - 1;
-            chunk.write_code(OpCode::Pop, token.line);
-            // Eval the body
-            try!(do_expressions(compiler, tokens, offset, chunk, source));
-            // Discard the last value
-            chunk.write_code(OpCode::Pop, token.line);
-            // Jump back to the condition
-            chunk.write_code(OpCode::Jump(loop_start_idx), token.line);
-            // Jump to here if we're done looping
-            chunk.backpatch_jump(loop_end_jmp_idx);
-            chunk.write_code(OpCode::Pop, token.line);
-        } else if fn_name.as_str() == "do" {
-            try!(advance(tokens, offset));
-            try!(do_expressions(compiler, tokens, offset, chunk, source));
-        } else {
-            // One OP functions
-            try!(advance(tokens, offset));
-            while tokens[*offset].token_type != TokenType::CloseParenthesis {
-                // TODO count number of expressions and pop this many as arguments
-                try!(expression(compiler, tokens, offset, chunk, source));
-            }
-            match fn_name.as_str() {
-                "+" => chunk.write_code(OpCode::Add, token.line),
-                "-" => chunk.write_code(OpCode::Subtract, token.line),
-                "*" => chunk.write_code(OpCode::Multiply, token.line),
-                "/" => chunk.write_code(OpCode::Divide, token.line),
-                "not" => chunk.write_code(OpCode::Not, token.line),
-                "=" => chunk.write_code(OpCode::Equal, token.line),
-                ">" => chunk.write_code(OpCode::GreaterThan, token.line),
-                ">=" => {
-                    chunk.write_code(OpCode::LessThan, token.line);
-                    chunk.write_code(OpCode::Not, token.line);
-                }
-                "<" => chunk.write_code(OpCode::LessThan, token.line),
-                "<=" => {
-                    chunk.write_code(OpCode::GreaterThan, token.line);
-                    chunk.write_code(OpCode::Not, token.line);
-                }
-                "print" => chunk.write_code(OpCode::Print, token.line),
-                _ => return Err(format!("Unsupported function: {}", fn_name)),
-            }
-        }
-        try!(consume_token(tokens, offset, &TokenType::CloseParenthesis, source));
-        compiler.sexp_depth -= 1;
-    } else {
+    if token.token_type != TokenType::Symbol {
         return Err(format!("Function name must be a symbol, got {}", token.token_type));
     }
+    let fn_name = token.get_token(source);
+    if fn_name.as_str() == "def" {
+        // `def` needs to read ahead because the first arg is a raw symbol
+        try!(advance(tokens, offset));
+        let next_token = &tokens[*offset];
+        if next_token.token_type != TokenType::Symbol {
+            return Err(String::from("Expected symbol for def"));
+        }
+        let sym = next_token.get_token(source);
+        try!(advance(tokens, offset));
+        try!(expression(compiler, tokens, offset, chunk, source));
+        let idx = chunk.write_constant(Value::Symbol(sym));
+        chunk.write_code(OpCode::DefineGlobal(idx), token.line);
+    } else if fn_name.as_str() == "let" {
+        // Setup a new scope
+        try!(advance(tokens, offset));
+        compiler.scope_depth += 1;
+        // Eval & Setup the bindings
+        try!(consume_token(tokens, offset, &TokenType::OpenParenthesis, source));
+        while &tokens[*offset].token_type == &TokenType::OpenParenthesis {
+            try!(consume_token(tokens, offset, &TokenType::OpenParenthesis, source));
+            // TODO error if not a symbol
+            let binding_token = &tokens[*offset];
+            let name = binding_token.get_token(source);
+            try!(advance(tokens, offset));
+            try!(expression(compiler, tokens, offset, chunk, source));
+            // chunk.write_code(OpCode::DefineLocal(compiler.locals.len()), binding_token.line);
+            compiler.locals.append(&mut vec![LocalVar{
+                name: name.to_string(),
+                depth: compiler.scope_depth,
+            }]);
+            try!(consume_token(tokens, offset, &TokenType::CloseParenthesis, source));
+        }
+        try!(consume_token(tokens, offset, &TokenType::CloseParenthesis, source));
+        // Eval the inner expressions
+        try!(do_expressions(compiler, tokens, offset, chunk, source));
+        // Zap the local scope off the stack when it ends
+        compiler.scope_depth -= 1;
+        let local_count = compiler.locals.len();
+        for i in 0..local_count {
+            let idx = local_count - i - 1;
+            let l = &compiler.locals[idx];
+            if compiler.scope_depth < l.depth {
+                compiler.locals.pop();
+                chunk.write_code(OpCode::Zap(idx), token.line);
+            } else {
+                break
+            }
+        }
+    } else if fn_name.as_str() == "when" {
+        try!(advance(tokens, offset));
+        // Eval the condition onto the stack
+        try!(expression(compiler, tokens, offset, chunk, source));
+        // Write a provisional JMP instruction and note the position
+        chunk.write_code(OpCode::JumpIfFalse(0), token.line);
+        let jmp_idx = chunk.code.len() - 1;
+        // Pop the conditional value
+        chunk.write_code(OpCode::Pop, token.line);
+        // Eval the body
+        try!(do_expressions(compiler, tokens, offset, chunk, source));
+        // Backpatch the end of the body into the JMP instruction
+        chunk.backpatch_jump(jmp_idx);
+    } else if fn_name.as_str() == "if" {
+        try!(advance(tokens, offset));
+        // Eval the condition onto the stack
+        try!(expression(compiler, tokens, offset, chunk, source));
+        // Write a provisional JMP instruction and note the position
+        chunk.write_code(OpCode::JumpIfFalse(0), token.line);
+        let sad_jmp_idx = chunk.code.len() - 1;
+        // Pop the conditional value on the happy path
+        chunk.write_code(OpCode::Pop, token.line);
+        // Eval the happy path body
+        try!(expression(compiler, tokens, offset, chunk, source));
+        // Write a provisional JMP instruction to pass the sad path
+        chunk.write_code(OpCode::Jump(0), token.line);
+        let happy_jmp_idx = chunk.code.len() - 1;
+        // Pop the conditional value on the sad path
+        chunk.write_code(OpCode::Pop, token.line);
+        // Backpatch the end of the happy path body into the first JMP instruction
+        chunk.backpatch_jump(sad_jmp_idx);
+        // Eval the sad path body
+        try!(expression(compiler, tokens, offset, chunk, source));
+        // Backpatch the end of the sad path body into the second JMP instruction
+        chunk.backpatch_jump(happy_jmp_idx);
+    } else if fn_name.as_str() == "and" {
+        try!(advance(tokens, offset));
+        // TODO implement n-arity
+        // Eval the first argument
+        try!(expression(compiler, tokens, offset, chunk, source));
+        // Write a provisional JMP instruction and note the position
+        chunk.write_code(OpCode::JumpIfFalse(0), token.line);
+        let jmp_idx = chunk.code.len() - 1;
+        chunk.write_code(OpCode::Pop, token.line);
+        // Eval the second argument
+        try!(expression(compiler, tokens, offset, chunk, source));
+        // Backpatch the JMP instruction to skip eval of the second argument
+        // if the first one is falsy
+        chunk.backpatch_jump(jmp_idx);
+    } else if fn_name.as_str() == "or" {
+        try!(advance(tokens, offset));
+        // TODO implement n-arity
+        // Eval the first argument
+        try!(expression(compiler, tokens, offset, chunk, source));
+        // Jump past the next jump if the first arg is falsy
+        chunk.write_code(OpCode::JumpIfFalse(0), token.line);
+        let happy_jmp_idx = chunk.code.len() - 1;
+        // Jump past the second arg otherwise
+        chunk.write_code(OpCode::Jump(0), token.line);
+        let sad_jmp_idx = chunk.code.len() - 1;
+        // The first JMP goes here
+        chunk.backpatch_jump(happy_jmp_idx);
+        chunk.write_code(OpCode::Pop, token.line);
+        // Eval the second argument
+        try!(expression(compiler, tokens, offset, chunk, source));
+        // The second JMP goes here
+        chunk.backpatch_jump(sad_jmp_idx);
+    } else if fn_name.as_str() == "while" {
+        try!(advance(tokens, offset));
+        // Set the loop starting point
+        let loop_start_idx = chunk.code.len() - 1;
+        // Eval the condition
+        try!(expression(compiler, tokens, offset, chunk, source));
+        // This JMP termiates the loop
+        chunk.write_code(OpCode::JumpIfFalse(0), token.line);
+        let loop_end_jmp_idx = chunk.code.len() - 1;
+        chunk.write_code(OpCode::Pop, token.line);
+        // Eval the body
+        try!(do_expressions(compiler, tokens, offset, chunk, source));
+        // Discard the last value
+        chunk.write_code(OpCode::Pop, token.line);
+        // Jump back to the condition
+        chunk.write_code(OpCode::Jump(loop_start_idx), token.line);
+        // Jump to here if we're done looping
+        chunk.backpatch_jump(loop_end_jmp_idx);
+        chunk.write_code(OpCode::Pop, token.line);
+    } else if fn_name.as_str() == "do" {
+        try!(advance(tokens, offset));
+        try!(do_expressions(compiler, tokens, offset, chunk, source));
+    } else {
+        // One OP functions
+        try!(advance(tokens, offset));
+        while tokens[*offset].token_type != TokenType::CloseParenthesis {
+            // TODO count number of expressions and pop this many as arguments
+            try!(expression(compiler, tokens, offset, chunk, source));
+        }
+        match fn_name.as_str() {
+            "+" => chunk.write_code(OpCode::Add, token.line),
+            "-" => chunk.write_code(OpCode::Subtract, token.line),
+            "*" => chunk.write_code(OpCode::Multiply, token.line),
+            "/" => chunk.write_code(OpCode::Divide, token.line),
+            "not" => chunk.write_code(OpCode::Not, token.line),
+            "=" => chunk.write_code(OpCode::Equal, token.line),
+            ">" => chunk.write_code(OpCode::GreaterThan, token.line),
+            ">=" => {
+                chunk.write_code(OpCode::LessThan, token.line);
+                chunk.write_code(OpCode::Not, token.line);
+            }
+            "<" => chunk.write_code(OpCode::LessThan, token.line),
+            "<=" => {
+                chunk.write_code(OpCode::GreaterThan, token.line);
+                chunk.write_code(OpCode::Not, token.line);
+            }
+            "print" => chunk.write_code(OpCode::Print, token.line),
+            _ => return Err(format!("Unsupported function: {}", fn_name)),
+        }
+    }
+    try!(consume_token(tokens, offset, &TokenType::CloseParenthesis, source));
+    compiler.sexp_depth -= 1;
     Ok(())
 }
 

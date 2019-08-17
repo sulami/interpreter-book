@@ -238,6 +238,15 @@ fn scan_token(source: &Vec<char>, offset: usize, line: &mut Line) -> Token {
     }
 }
 
+fn print_token(token: &Token, source: &Vec<char>) {
+    println!("{:?} {} {} {} {}",
+             token.token_type,
+             token.line,
+             token.length,
+             token.start,
+             token.get_token(&source));
+}
+
 pub fn scan(source: &Vec<char>, debug: bool) -> Vec<Token> {
     let mut offset = 0;
     let mut tokens: Vec<Token> = vec![];
@@ -245,18 +254,17 @@ pub fn scan(source: &Vec<char>, debug: bool) -> Vec<Token> {
     loop {
         let token = scan_token(&source, offset, &mut line);
         if debug {
-            println!("{:?} {} {} {} {}",
-                     token.token_type,
-                     token.line,
-                     token.length,
-                     token.start,
-                     token.get_token(&source));
+            print_token(&token, source);
         }
         offset = token.start + token.length;
         if source.len() <= offset {
             tokens.append(&mut vec![token]);
+            let eof_token = Token{token_type: TokenType::EOF, line: line, start: offset, length: 0};
+            if debug {
+                print_token(&eof_token, source);
+            }
             tokens.append(
-                &mut vec![Token{token_type: TokenType::EOF, line: line, start: offset, length: 0}]
+                &mut vec![eof_token]
             );
             break tokens;
         } else if token.token_type == TokenType::EOF {

@@ -27,7 +27,12 @@ pub enum TokenType {
 
 impl std::fmt::Display for TokenType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self)
+        match self {
+            TokenType::Error(ScanError::UnterminatedString) => write!(f, "Unterminated string"),
+            TokenType::Error(ScanError::EmptyKeyword) => write!(f, "Empty keyword"),
+            TokenType::Error(ScanError::RanOff) => write!(f, "Ran off"),
+            _ => write!(f, "{}", self),
+        }
     }
 }
 
@@ -135,7 +140,7 @@ fn scan_string(source: &Vec<char>, start: &mut usize, line: &mut Line) -> (Token
         if source[string_end] == '"' {
             break (TokenType::String, string_length + 1)
         }
-        if source.len() <= string_end {
+        if source.len() - 1 <= string_end {
             break (TokenType::Error(ScanError::UnterminatedString), string_length)
         }
     }

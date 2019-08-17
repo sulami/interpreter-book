@@ -322,31 +322,21 @@ fn compile(source: String, debug: bool) -> Result<Chunk, String> {
         constants: vec![],
         lines: vec![],
     };
-    let mut had_error = false;
-    let mut error = String::default();
     let mut offset = 0;
     let token_count = tokens.len();
     while offset < token_count - 1 {
         let token = &tokens[offset];
         if token.is_error() {
-            had_error = true;
-            error = String::from("Lexing error");
-            break
+            return Err(format!("Lexing error: {}", token.token_type));
         } else {
             let exp = expression(&mut compiler, &tokens, &mut offset, &mut chunk, &source_chars);
             if exp.is_err() {
-                had_error = true;
-                error = exp.err().unwrap();
-                break
+                return Err(exp.err().unwrap());
             }
         }
     }
     chunk.write_code(OpCode::Return, 99);
-    if had_error {
-        Err(error)
-    } else {
-        Ok(chunk)
-    }
+    Ok(chunk)
 }
 
 pub fn interpret<'a>(vm: &mut VM, source: String, debug: bool) -> Result<(), String> {

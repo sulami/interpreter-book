@@ -117,7 +117,7 @@ impl std::fmt::Display for Value {
             Value::Nil => write!(f, "nil"),
             Value::Bool(b) => write!(f, "{}", b),
             Value::Int(x) => write!(f, "{}", x),
-            Value::Float(x) => write!(f, "{}", x),
+            Value::Float(x) => write!(f, "{:?}", x),
             Value::String(s) => write!(f, "{}", s),
             Value::Symbol(s) => write!(f, "{}", s),
         }

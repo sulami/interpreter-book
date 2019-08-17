@@ -312,7 +312,7 @@ impl VM {
                     let name = chunk.read_constant(*ptr);
                     match self.globals.get(&name.to_string()) {
                         Some(v) => self.stack.push(v.clone()),
-                        None => break runtime_error("Symbol not found"),
+                        None => break runtime_error(format!("Symbol {} not found", name).as_str()),
                     }
                 }
                 OpCode::DefineLocal(ptr) => {

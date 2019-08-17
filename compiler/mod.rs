@@ -17,13 +17,6 @@ pub struct Compiler {
     sexp_depth: usize,
 }
 
-fn report_error(error_token: &Token, source: &SourceCode, message: &str) {
-    println!("Error at {} (line {}) : {}",
-             error_token.get_token(source),
-             error_token.line,
-             message);
-}
-
 fn advance(tokens: &Vec<Token>, offset: &mut usize) -> Result<(), String> {
     if *offset < tokens.len() - 1 {
        *offset += 1;
@@ -74,7 +67,7 @@ fn sexp(compiler: &mut Compiler,
                 let idx = chunk.write_constant(Value::Symbol(sym));
                 chunk.write_code(OpCode::DefineGlobal(idx), token.line);
             } else {
-                report_error(next_token, source, "Expected symbol for def")
+                return Err(String::from("Expected symbol for def"));
             }
         } else if fn_name.as_str() == "let" {
             // Setup a new scope
@@ -226,13 +219,13 @@ fn sexp(compiler: &mut Compiler,
                     chunk.write_code(OpCode::Not, token.line);
                 }
                 "print" => chunk.write_code(OpCode::Print, token.line),
-                _ => report_error(token, source, format!("Unsupported function: {}", fn_name).as_str()),
+                _ => return Err(format!("Unsupported function: {}", fn_name)),
             }
         }
         try!(consume_token(tokens, offset, &TokenType::CloseParenthesis, source));
         compiler.sexp_depth -= 1;
     } else {
-        report_error(token, source, "Function name must be a symbol");
+        return Err(format!("Function name must be a symbol, got {}", token.token_type));
     }
     Ok(())
 }
@@ -300,10 +293,7 @@ fn expression(compiler: &mut Compiler,
         TokenType::EOF => {
             try!(advance(tokens, offset));
         }
-        _ => {
-            report_error(&token, source, "Token type not implemented");
-            try!(advance(tokens, offset));
-        }
+        _ => panic!("Token type not implemented"),
     };
     if compiler.sexp_depth == 0 {
         chunk.write_code(OpCode::Wipe, token.line);

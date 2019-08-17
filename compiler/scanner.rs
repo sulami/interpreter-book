@@ -225,7 +225,7 @@ fn scan_token(source: &Vec<char>, offset: usize, line: &mut Line) -> Token {
         '"' => scan_string(source, &mut start, line),
         ':' => scan_keyword(source, &mut start, line),
         '-' => scan_dash(source, &mut start, line),
-        _ if start == source.len() - 1 => (TokenType::EOF, 1),
+        _ if start == source.len() - 1 => (TokenType::EOF, 0),
         _ if is_number(source[start]) => scan_number(source, &mut start),
         _ if is_symbol(source[start]) => scan_symbol(source, &mut start, line),
         _ => (TokenType::Error(ScanError::RanOff), 1),
@@ -240,12 +240,9 @@ fn scan_token(source: &Vec<char>, offset: usize, line: &mut Line) -> Token {
 
 pub fn scan(source: &Vec<char>, debug: bool) -> Vec<Token> {
     let mut offset = 0;
-    let mut tokens = vec![];
+    let mut tokens: Vec<Token> = vec![];
     let mut line: Line = 1;
     loop {
-        if offset >= source.len() {
-            break tokens;
-        }
         let token = scan_token(&source, offset, &mut line);
         if debug {
             println!("{:?} {} {} {} {}",
@@ -256,6 +253,17 @@ pub fn scan(source: &Vec<char>, debug: bool) -> Vec<Token> {
                      token.get_token(&source));
         }
         offset = token.start + token.length;
-        tokens.insert(tokens.len(), token);
+        if source.len() <= offset {
+            tokens.append(&mut vec![token]);
+            tokens.append(
+                &mut vec![Token{token_type: TokenType::EOF, line: line, start: offset, length: 0}]
+            );
+            break tokens;
+        } else if token.token_type == TokenType::EOF {
+            tokens.append(&mut vec![token]);
+            break tokens;
+        } else {
+            tokens.append(&mut vec![token]);
+        }
     }
 }

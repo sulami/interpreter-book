@@ -257,7 +257,12 @@ fn expression(compiler: &mut Compiler,
             try!(advance(tokens, offset));
         }
         TokenType::Float => {
-            let val: f64 = token.get_token(source).parse().unwrap();
+            let mut raw_val = token.get_token(source);
+            if raw_val.starts_with(".") {
+                // Parse ".3" as 0.3
+                raw_val.insert_str(0, "0");
+            }
+            let val: f64 = raw_val.parse().unwrap();
             let idx = chunk.write_constant(Value::Float(val));
             chunk.write_code(OpCode::Constant(idx), token.line);
             try!(advance(tokens, offset));

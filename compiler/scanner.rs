@@ -160,18 +160,18 @@ fn scan_keyword(source: &Vec<char>, start: &mut usize, line: &mut Line) -> (Toke
 }
 
 fn scan_number(source: &Vec<char>, start: &mut usize) -> (TokenType, usize) {
-    let mut token_length = 1;
+    let mut token_length = 0;
     let mut is_float = false;
     loop {
         if source.len() <= *start + token_length {
             break
         };
         let c = source[*start + token_length];
-        if !is_number(c) {
-            break
-        }
         if c == '.' {
             is_float = true;
+        }
+        if !is_number(c) {
+            break
         }
         token_length += 1;
     }

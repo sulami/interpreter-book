@@ -12,6 +12,7 @@ pub struct LocalVar {
 }
 
 pub struct Compiler {
+    chunk: Chunk,
     locals: Vec<LocalVar>,
     scope_depth: usize,
     sexp_depth: usize,
@@ -29,17 +30,16 @@ fn advance(tokens: &Vec<Token>, offset: &mut usize) -> Result<(), String> {
 fn do_expressions(compiler: &mut Compiler,
                   tokens: &Vec<Token>,
                   offset: &mut usize,
-                  chunk: &mut Chunk,
                   source: &SourceCode)
                   -> Result<(), String> {
     if tokens[*offset].token_type != TokenType::CloseParenthesis {
-        try!(expression(compiler, tokens, offset, chunk, source));
+        try!(expression(compiler, tokens, offset, source));
         // Just keep evaluating in the current scope until we run out
         while tokens[*offset].token_type != TokenType::CloseParenthesis {
             // Pop all but the last value off the stack again
             let token = &tokens[*offset];
-            chunk.write_code(OpCode::Pop, token.line);
-            try!(expression(compiler, tokens, offset, chunk, source));
+            compiler.chunk.write_code(OpCode::Pop, token.line);
+            try!(expression(compiler, tokens, offset, source));
         }
     }
     Ok(())
@@ -48,7 +48,6 @@ fn do_expressions(compiler: &mut Compiler,
 fn compile_def(compiler: &mut Compiler,
                tokens: &Vec<Token>,
                offset: &mut usize,
-               chunk: &mut Chunk,
                source: &SourceCode)
                -> Result<(), String> {
     let token = &tokens[*offset];
@@ -60,16 +59,15 @@ fn compile_def(compiler: &mut Compiler,
     }
     let sym = next_token.get_token(source);
     try!(advance(tokens, offset));
-    try!(expression(compiler, tokens, offset, chunk, source));
-    let idx = chunk.write_constant(Value::Symbol(sym));
-    chunk.write_code(OpCode::DefineGlobal(idx), token.line);
+    try!(expression(compiler, tokens, offset, source));
+    let idx = compiler.chunk.write_constant(Value::Symbol(sym));
+    compiler.chunk.write_code(OpCode::DefineGlobal(idx), token.line);
     Ok(())
 }
 
 fn compile_let(compiler: &mut Compiler,
                tokens: &Vec<Token>,
                offset: &mut usize,
-               chunk: &mut Chunk,
                source: &SourceCode)
                -> Result<(), String> {
     let token = &tokens[*offset];
@@ -84,7 +82,7 @@ fn compile_let(compiler: &mut Compiler,
         let binding_token = &tokens[*offset];
         let name = binding_token.get_token(source);
         try!(advance(tokens, offset));
-        try!(expression(compiler, tokens, offset, chunk, source));
+        try!(expression(compiler, tokens, offset, source));
         // chunk.write_code(OpCode::DefineLocal(compiler.locals.len()), binding_token.line);
         compiler.locals.append(&mut vec![LocalVar{
             name: name.to_string(),
@@ -94,7 +92,7 @@ fn compile_let(compiler: &mut Compiler,
     }
     try!(consume_token(tokens, offset, &TokenType::CloseParenthesis, source));
     // Eval the inner expressions
-    try!(do_expressions(compiler, tokens, offset, chunk, source));
+    try!(do_expressions(compiler, tokens, offset, source));
     // Zap the local scope off the stack when it ends
     compiler.scope_depth -= 1;
     let local_count = compiler.locals.len();
@@ -103,7 +101,7 @@ fn compile_let(compiler: &mut Compiler,
         let l = &compiler.locals[idx];
         if compiler.scope_depth < l.depth {
             compiler.locals.pop();
-            chunk.write_code(OpCode::Zap(idx), token.line);
+            compiler.chunk.write_code(OpCode::Zap(idx), token.line);
         } else {
             break
         }
@@ -114,138 +112,132 @@ fn compile_let(compiler: &mut Compiler,
 fn compile_when(compiler: &mut Compiler,
                 tokens: &Vec<Token>,
                 offset: &mut usize,
-                chunk: &mut Chunk,
                 source: &SourceCode)
                 -> Result<(), String> {
     let token = &tokens[*offset];
     try!(advance(tokens, offset));
     // Eval the condition onto the stack
-    try!(expression(compiler, tokens, offset, chunk, source));
+    try!(expression(compiler, tokens, offset, source));
     // Write a provisional JMP instruction and note the position
-    chunk.write_code(OpCode::JumpIfFalse(0), token.line);
-    let jmp_idx = chunk.code.len() - 1;
+    compiler.chunk.write_code(OpCode::JumpIfFalse(0), token.line);
+    let jmp_idx = compiler.chunk.code.len() - 1;
     // Pop the conditional value
-    chunk.write_code(OpCode::Pop, token.line);
+    compiler.chunk.write_code(OpCode::Pop, token.line);
     // Eval the body
-    try!(do_expressions(compiler, tokens, offset, chunk, source));
+    try!(do_expressions(compiler, tokens, offset, source));
     // Backpatch the end of the body into the JMP instruction
-    chunk.backpatch_jump(jmp_idx);
+    compiler.chunk.backpatch_jump(jmp_idx);
     Ok(())
 }
 
 fn compile_if(compiler: &mut Compiler,
               tokens: &Vec<Token>,
               offset: &mut usize,
-              chunk: &mut Chunk,
               source: &SourceCode)
               -> Result<(), String> {
     let token = &tokens[*offset];
     try!(advance(tokens, offset));
     // Eval the condition onto the stack
-    try!(expression(compiler, tokens, offset, chunk, source));
+    try!(expression(compiler, tokens, offset, source));
     // Write a provisional JMP instruction and note the position
-    chunk.write_code(OpCode::JumpIfFalse(0), token.line);
-    let sad_jmp_idx = chunk.code.len() - 1;
+    compiler.chunk.write_code(OpCode::JumpIfFalse(0), token.line);
+    let sad_jmp_idx = compiler.chunk.code.len() - 1;
     // Pop the conditional value on the happy path
-    chunk.write_code(OpCode::Pop, token.line);
+    compiler.chunk.write_code(OpCode::Pop, token.line);
     // Eval the happy path body
-    try!(expression(compiler, tokens, offset, chunk, source));
+    try!(expression(compiler, tokens, offset, source));
     // Write a provisional JMP instruction to pass the sad path
-    chunk.write_code(OpCode::Jump(0), token.line);
-    let happy_jmp_idx = chunk.code.len() - 1;
+    compiler.chunk.write_code(OpCode::Jump(0), token.line);
+    let happy_jmp_idx = compiler.chunk.code.len() - 1;
     // Pop the conditional value on the sad path
-    chunk.write_code(OpCode::Pop, token.line);
+    compiler.chunk.write_code(OpCode::Pop, token.line);
     // Backpatch the end of the happy path body into the first JMP instruction
-    chunk.backpatch_jump(sad_jmp_idx);
+    compiler.chunk.backpatch_jump(sad_jmp_idx);
     // Eval the sad path body
-    try!(expression(compiler, tokens, offset, chunk, source));
+    try!(expression(compiler, tokens, offset, source));
     // Backpatch the end of the sad path body into the second JMP instruction
-    chunk.backpatch_jump(happy_jmp_idx);
+    compiler.chunk.backpatch_jump(happy_jmp_idx);
     Ok(())
 }
 
 fn compile_and(compiler: &mut Compiler,
                tokens: &Vec<Token>,
                offset: &mut usize,
-               chunk: &mut Chunk,
                source: &SourceCode)
                -> Result<(), String> {
     let token = &tokens[*offset];
     try!(advance(tokens, offset));
     // TODO implement n-arity
     // Eval the first argument
-    try!(expression(compiler, tokens, offset, chunk, source));
+    try!(expression(compiler, tokens, offset, source));
     // Write a provisional JMP instruction and note the position
-    chunk.write_code(OpCode::JumpIfFalse(0), token.line);
-    let jmp_idx = chunk.code.len() - 1;
-    chunk.write_code(OpCode::Pop, token.line);
+    compiler.chunk.write_code(OpCode::JumpIfFalse(0), token.line);
+    let jmp_idx = compiler.chunk.code.len() - 1;
+    compiler.chunk.write_code(OpCode::Pop, token.line);
     // Eval the second argument
-    try!(expression(compiler, tokens, offset, chunk, source));
+    try!(expression(compiler, tokens, offset, source));
     // Backpatch the JMP instruction to skip eval of the second argument
     // if the first one is falsy
-    chunk.backpatch_jump(jmp_idx);
+    compiler.chunk.backpatch_jump(jmp_idx);
     Ok(())
 }
 
 fn compile_or(compiler: &mut Compiler,
               tokens: &Vec<Token>,
               offset: &mut usize,
-              chunk: &mut Chunk,
               source: &SourceCode)
               -> Result<(), String> {
     let token = &tokens[*offset];
     try!(advance(tokens, offset));
     // TODO implement n-arity
     // Eval the first argument
-    try!(expression(compiler, tokens, offset, chunk, source));
+    try!(expression(compiler, tokens, offset, source));
     // Jump past the next jump if the first arg is falsy
-    chunk.write_code(OpCode::JumpIfFalse(0), token.line);
-    let happy_jmp_idx = chunk.code.len() - 1;
+    compiler.chunk.write_code(OpCode::JumpIfFalse(0), token.line);
+    let happy_jmp_idx = compiler.chunk.code.len() - 1;
     // Jump past the second arg otherwise
-    chunk.write_code(OpCode::Jump(0), token.line);
-    let sad_jmp_idx = chunk.code.len() - 1;
+    compiler.chunk.write_code(OpCode::Jump(0), token.line);
+    let sad_jmp_idx = compiler.chunk.code.len() - 1;
     // The first JMP goes here
-    chunk.backpatch_jump(happy_jmp_idx);
-    chunk.write_code(OpCode::Pop, token.line);
+    compiler.chunk.backpatch_jump(happy_jmp_idx);
+    compiler.chunk.write_code(OpCode::Pop, token.line);
     // Eval the second argument
-    try!(expression(compiler, tokens, offset, chunk, source));
+    try!(expression(compiler, tokens, offset, source));
     // The second JMP goes here
-    chunk.backpatch_jump(sad_jmp_idx);
+    compiler.chunk.backpatch_jump(sad_jmp_idx);
     Ok(())
 }
 
 fn compile_while(compiler: &mut Compiler,
                  tokens: &Vec<Token>,
                  offset: &mut usize,
-                 chunk: &mut Chunk,
                  source: &SourceCode)
                  -> Result<(), String> {
     let token = &tokens[*offset];
     try!(advance(tokens, offset));
     // Set the loop starting point
-    let loop_start_idx = chunk.code.len() - 1;
+    let loop_start_idx = compiler.chunk.code.len() - 1;
     // Eval the condition
-    try!(expression(compiler, tokens, offset, chunk, source));
+    try!(expression(compiler, tokens, offset, source));
     // This JMP termiates the loop
-    chunk.write_code(OpCode::JumpIfFalse(0), token.line);
-    let loop_end_jmp_idx = chunk.code.len() - 1;
-    chunk.write_code(OpCode::Pop, token.line);
+    compiler.chunk.write_code(OpCode::JumpIfFalse(0), token.line);
+    let loop_end_jmp_idx = compiler.chunk.code.len() - 1;
+    compiler.chunk.write_code(OpCode::Pop, token.line);
     // Eval the body
-    try!(do_expressions(compiler, tokens, offset, chunk, source));
+    try!(do_expressions(compiler, tokens, offset, source));
     // Discard the last value
-    chunk.write_code(OpCode::Pop, token.line);
+    compiler.chunk.write_code(OpCode::Pop, token.line);
     // Jump back to the condition
-    chunk.write_code(OpCode::Jump(loop_start_idx), token.line);
+    compiler.chunk.write_code(OpCode::Jump(loop_start_idx), token.line);
     // Jump to here if we're done looping
-    chunk.backpatch_jump(loop_end_jmp_idx);
-    chunk.write_code(OpCode::Pop, token.line);
+    compiler.chunk.backpatch_jump(loop_end_jmp_idx);
+    compiler.chunk.write_code(OpCode::Pop, token.line);
     Ok(())
 }
 
 fn compile_post_op(compiler: &mut Compiler,
                    tokens: &Vec<Token>,
                    offset: &mut usize,
-                   chunk: &mut Chunk,
                    source: &SourceCode)
                    -> Result<(), String> {
     let token = &tokens[*offset];
@@ -253,26 +245,26 @@ fn compile_post_op(compiler: &mut Compiler,
     try!(advance(tokens, offset));
     while tokens[*offset].token_type != TokenType::CloseParenthesis {
         // TODO count number of expressions and pop this many as arguments
-        try!(expression(compiler, tokens, offset, chunk, source));
+        try!(expression(compiler, tokens, offset, source));
     }
     match fn_name.as_str() {
-        "+" => chunk.write_code(OpCode::Add, token.line),
-        "-" => chunk.write_code(OpCode::Subtract, token.line),
-        "*" => chunk.write_code(OpCode::Multiply, token.line),
-        "/" => chunk.write_code(OpCode::Divide, token.line),
-        "not" => chunk.write_code(OpCode::Not, token.line),
-        "=" => chunk.write_code(OpCode::Equal, token.line),
-        ">" => chunk.write_code(OpCode::GreaterThan, token.line),
+        "+" => compiler.chunk.write_code(OpCode::Add, token.line),
+        "-" => compiler.chunk.write_code(OpCode::Subtract, token.line),
+        "*" => compiler.chunk.write_code(OpCode::Multiply, token.line),
+        "/" => compiler.chunk.write_code(OpCode::Divide, token.line),
+        "not" => compiler.chunk.write_code(OpCode::Not, token.line),
+        "=" => compiler.chunk.write_code(OpCode::Equal, token.line),
+        ">" => compiler.chunk.write_code(OpCode::GreaterThan, token.line),
         ">=" => {
-            chunk.write_code(OpCode::LessThan, token.line);
-            chunk.write_code(OpCode::Not, token.line);
+            compiler.chunk.write_code(OpCode::LessThan, token.line);
+            compiler.chunk.write_code(OpCode::Not, token.line);
         }
-        "<" => chunk.write_code(OpCode::LessThan, token.line),
+        "<" => compiler.chunk.write_code(OpCode::LessThan, token.line),
         "<=" => {
-            chunk.write_code(OpCode::GreaterThan, token.line);
-            chunk.write_code(OpCode::Not, token.line);
+            compiler.chunk.write_code(OpCode::GreaterThan, token.line);
+            compiler.chunk.write_code(OpCode::Not, token.line);
         }
-        "print" => chunk.write_code(OpCode::Print, token.line),
+        "print" => compiler.chunk.write_code(OpCode::Print, token.line),
         _ => return Err(format!("Unsupported function: {}", fn_name)),
     }
     Ok(())
@@ -281,7 +273,6 @@ fn compile_post_op(compiler: &mut Compiler,
 fn compile_sexp(compiler: &mut Compiler,
                 tokens: &Vec<Token>,
                 offset: &mut usize,
-                chunk: &mut Chunk,
                 source: &SourceCode)
                 -> Result<(), String> {
     compiler.sexp_depth += 1;
@@ -292,18 +283,18 @@ fn compile_sexp(compiler: &mut Compiler,
     }
     let fn_name = token.get_token(source);
     match fn_name.as_str() {
-        "def" => try!(compile_def(compiler, tokens, offset, chunk, source)),
-        "let" => try!(compile_let(compiler, tokens, offset, chunk, source)),
-        "when" => try!(compile_when(compiler, tokens, offset, chunk, source)),
-        "if" => try!(compile_if(compiler, tokens, offset, chunk, source)),
-        "and" => try!(compile_and(compiler, tokens, offset, chunk, source)),
-        "or" => try!(compile_or(compiler, tokens, offset, chunk, source)),
-        "while" => try!(compile_while(compiler, tokens, offset, chunk, source)),
+        "def" => try!(compile_def(compiler, tokens, offset, source)),
+        "let" => try!(compile_let(compiler, tokens, offset, source)),
+        "when" => try!(compile_when(compiler, tokens, offset, source)),
+        "if" => try!(compile_if(compiler, tokens, offset, source)),
+        "and" => try!(compile_and(compiler, tokens, offset, source)),
+        "or" => try!(compile_or(compiler, tokens, offset, source)),
+        "while" => try!(compile_while(compiler, tokens, offset, source)),
         "do" => {
             try!(advance(tokens, offset));
-            try!(do_expressions(compiler, tokens, offset, chunk, source));
+            try!(do_expressions(compiler, tokens, offset, source));
         }
-        _ => try!(compile_post_op(compiler, tokens, offset, chunk, source)),
+        _ => try!(compile_post_op(compiler, tokens, offset, source)),
     }
     try!(consume_token(tokens, offset, &TokenType::CloseParenthesis, source));
     compiler.sexp_depth -= 1;
@@ -313,27 +304,26 @@ fn compile_sexp(compiler: &mut Compiler,
 fn expression(compiler: &mut Compiler,
               tokens: &Vec<Token>,
               offset: &mut usize,
-              chunk: &mut Chunk,
               source: &SourceCode)
               -> Result<(), String> {
     let token = &tokens[*offset];
     match token.token_type {
-        TokenType::OpenParenthesis => try!(compile_sexp(compiler, tokens, offset, chunk, source)),
+        TokenType::OpenParenthesis => try!(compile_sexp(compiler, tokens, offset, source)),
         TokenType::Nil => {
-            let idx = chunk.write_constant(Value::Nil);
-            chunk.write_code(OpCode::Constant(idx), token.line);
+            let idx = compiler.chunk.write_constant(Value::Nil);
+            compiler.chunk.write_code(OpCode::Constant(idx), token.line);
             try!(advance(tokens, offset));
         }
         TokenType::Bool => {
             let val: bool = token.get_token(source) == "true";
-            let idx = chunk.write_constant(Value::Bool(val));
-            chunk.write_code(OpCode::Constant(idx), token.line);
+            let idx = compiler.chunk.write_constant(Value::Bool(val));
+            compiler.chunk.write_code(OpCode::Constant(idx), token.line);
             try!(advance(tokens, offset));
         }
         TokenType::Int => {
             let val: i64 = token.get_token(source).parse().unwrap();
-            let idx = chunk.write_constant(Value::Int(val));
-            chunk.write_code(OpCode::Constant(idx), token.line);
+            let idx = compiler.chunk.write_constant(Value::Int(val));
+            compiler.chunk.write_code(OpCode::Constant(idx), token.line);
             try!(advance(tokens, offset));
         }
         TokenType::Float => {
@@ -343,8 +333,8 @@ fn expression(compiler: &mut Compiler,
                 raw_val.insert_str(0, "0");
             }
             let val: f64 = raw_val.parse().unwrap();
-            let idx = chunk.write_constant(Value::Float(val));
-            chunk.write_code(OpCode::Constant(idx), token.line);
+            let idx = compiler.chunk.write_constant(Value::Float(val));
+            compiler.chunk.write_code(OpCode::Constant(idx), token.line);
             try!(advance(tokens, offset));
         }
         TokenType::Keyword => {
@@ -353,8 +343,8 @@ fn expression(compiler: &mut Compiler,
         }
         TokenType::String => {
             let val = token.get_token(source);
-            let idx = chunk.write_constant(Value::String(val));
-            chunk.write_code(OpCode::Constant(idx), token.line);
+            let idx = compiler.chunk.write_constant(Value::String(val));
+            compiler.chunk.write_code(OpCode::Constant(idx), token.line);
             try!(advance(tokens, offset));
         }
         TokenType::Symbol => {
@@ -364,14 +354,14 @@ fn expression(compiler: &mut Compiler,
             for i in 0..local_count {
                 let idx = local_count - i - 1;
                 if compiler.locals[idx].name == val {
-                    chunk.write_code(OpCode::GetLocal(idx), token.line);
+                    compiler.chunk.write_code(OpCode::GetLocal(idx), token.line);
                     is_local = true;
                     break
                 }
             }
             if !is_local {
-                let idx = chunk.write_constant(Value::Symbol(val));
-                chunk.write_code(OpCode::GetGlobal(idx), token.line);
+                let idx = compiler.chunk.write_constant(Value::Symbol(val));
+                compiler.chunk.write_code(OpCode::GetGlobal(idx), token.line);
             }
             try!(advance(tokens, offset));
         }
@@ -381,7 +371,7 @@ fn expression(compiler: &mut Compiler,
         _ => panic!("Token type not implemented"),
     };
     if compiler.sexp_depth == 0 {
-        chunk.write_code(OpCode::Wipe, token.line);
+        compiler.chunk.write_code(OpCode::Wipe, token.line);
     }
     Ok(())
 }
@@ -399,14 +389,19 @@ fn consume_token(tokens: &Vec<Token>, offset: &mut usize,
 }
 
 fn compile(source: String, debug: bool) -> Result<Chunk, String> {
-    let mut compiler = Compiler{locals: vec![], scope_depth: 0, sexp_depth: 0};
-    let source_chars: SourceCode = source.chars().collect();
-    let tokens = scanner::scan(&source_chars, debug);
-    let mut chunk = Chunk{
+    let chunk = Chunk{
         code: vec![],
         constants: vec![],
         lines: vec![],
     };
+    let mut compiler = Compiler{
+        chunk: chunk,
+        locals: vec![],
+        scope_depth: 0,
+        sexp_depth: 0
+    };
+    let source_chars: SourceCode = source.chars().collect();
+    let tokens = scanner::scan(&source_chars, debug);
     let mut offset = 0;
     let token_count = tokens.len();
     while offset < token_count - 1 {
@@ -414,14 +409,14 @@ fn compile(source: String, debug: bool) -> Result<Chunk, String> {
         if token.is_error() {
             return Err(format!("Lexing error: {}", token.token_type));
         } else {
-            let exp = expression(&mut compiler, &tokens, &mut offset, &mut chunk, &source_chars);
+            let exp = expression(&mut compiler, &tokens, &mut offset, &source_chars);
             if exp.is_err() {
                 return Err(exp.err().unwrap());
             }
         }
     }
-    chunk.write_code(OpCode::Return, 99);
-    Ok(chunk)
+    compiler.chunk.write_code(OpCode::Return, 99);
+    Ok(compiler.chunk)
 }
 
 pub fn interpret<'a>(vm: &mut VM, source: String, debug: bool) -> Result<(), String> {

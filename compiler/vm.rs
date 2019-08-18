@@ -8,6 +8,7 @@ pub enum Value {
     Float(f64),
     String(String),
     Symbol(String),
+    Function(String),
 }
 
 impl Value {
@@ -120,6 +121,7 @@ impl std::fmt::Display for Value {
             Value::Float(x) => write!(f, "{:?}", x),
             Value::String(s) => write!(f, "{}", s),
             Value::Symbol(s) => write!(f, "{}", s),
+            Value::Function(s) => write!(f, "{}", s),
         }
     }
 }
@@ -128,6 +130,7 @@ impl std::fmt::Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         match self {
             Value::String(s) => write!(f, "\"{}\"", s),
+            Value::Function(s) => write!(f, "fn<{}>", s),
             _ => write!(f, "{}", self),
         }
     }
@@ -185,6 +188,7 @@ impl Chunk {
             Value::Float(n) => Value::Float(*n),
             Value::String(s) => Value::String(String::from(s)),
             Value::Symbol(s) => Value::Symbol(String::from(s)),
+            Value::Function(s) => Value::Function(String::from(s)),
         }
     }
 

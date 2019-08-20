@@ -255,10 +255,16 @@ impl std::fmt::Debug for Chunk {
     }
 }
 
-pub struct VM {
+pub struct CallFrame {
+    fn_name: String,
     ip: usize,
+    stack_start: usize,
+}
+
+pub struct VM {
     stack: ValueArray,
     globals: HashMap<String, Value>,
+    call_stack: Vec<CallFrame>,
 }
 
 fn runtime_error(msg: &str) -> Result<(), String> {
@@ -268,9 +274,17 @@ fn runtime_error(msg: &str) -> Result<(), String> {
 impl VM {
     fn print_state(&self) {
         println!("== vm state ==");
-        println!("ip: {:04x}", self.ip);
+        println!("ip: {:04x}", self.current_frame().ip);
         println!("stack: {:?}", self.stack);
         println!("globals: {:?}", self.globals);
+    }
+
+    fn current_frame(&self) -> &CallFrame {
+        self.call_stack.last().unwrap()
+    }
+
+    fn current_frame_mut(&mut self) -> &mut CallFrame {
+        self.call_stack.last_mut().unwrap()
     }
 
     fn pop(&mut self) -> Result<Value, String> {
@@ -290,19 +304,18 @@ impl VM {
     }
 
     pub fn interpret<'a>(&mut self, chunk: Chunk, debug: bool) -> Result<(), String> {
-        self.ip = 0;
         self.stack = vec![];
         loop {
             if debug {
-                chunk.disassemble_instruction(self.ip);
+                chunk.disassemble_instruction(self.current_frame().ip);
             }
-            if chunk.code.len() - 1 <= self.ip {
+            if chunk.code.len() - 1 <= self.current_frame().ip {
                 if debug {
                     self.print_state();
                 }
                 break Ok(())
             }
-            match &chunk.code[self.ip] {
+            match &chunk.code[self.current_frame().ip] {
                 OpCode::Constant(ptr) => {
                     self.stack.push(chunk.read_constant(*ptr));
                 }
@@ -324,11 +337,11 @@ impl VM {
                     self.stack.push(Value::Symbol(name.to_string()));
                 }
                 OpCode::GetLocal(idx) => self.stack.push(self.stack[*idx].clone()),
-                OpCode::Jump(ptr) => self.ip = *ptr,
+                OpCode::Jump(ptr) => self.current_frame_mut().ip = *ptr,
                 OpCode::JumpIfFalse(ptr) => {
                     let v = try!(self.peek());
                     if !v.truthy() {
-                        self.ip = *ptr;
+                        self.current_frame_mut().ip = *ptr;
                     }
                 }
                 OpCode::Negate => {
@@ -401,15 +414,20 @@ impl VM {
                     println!("{}", c);
                 }
             };
-            self.ip += 1;
+            self.current_frame_mut().ip += 1;
         }
     }
 }
 
 pub fn init_vm() -> VM {
-    VM{
+    let top_frame = CallFrame{
+        fn_name: String::from("main"),
         ip: 0,
+        stack_start: 0,
+    };
+    VM{
         stack: vec![],
         globals: HashMap::new(),
+        call_stack: vec![top_frame],
     }
 }

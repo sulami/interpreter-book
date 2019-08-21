@@ -75,9 +75,9 @@ fn compile_let(compiler: &mut Compiler,
     try!(advance(tokens, offset));
     compiler.scope_depth += 1;
     // Eval & Setup the bindings
-    try!(consume_token(tokens, offset, &TokenType::OpenParenthesis, source));
+    try!(consume_token(tokens, offset, &TokenType::OpenParenthesis));
     while &tokens[*offset].token_type == &TokenType::OpenParenthesis {
-        try!(consume_token(tokens, offset, &TokenType::OpenParenthesis, source));
+        try!(consume_token(tokens, offset, &TokenType::OpenParenthesis));
         // TODO error if not a symbol
         let binding_token = &tokens[*offset];
         let name = binding_token.get_token(source);
@@ -88,9 +88,9 @@ fn compile_let(compiler: &mut Compiler,
             name: name.to_string(),
             depth: compiler.scope_depth,
         }]);
-        try!(consume_token(tokens, offset, &TokenType::CloseParenthesis, source));
+        try!(consume_token(tokens, offset, &TokenType::CloseParenthesis));
     }
-    try!(consume_token(tokens, offset, &TokenType::CloseParenthesis, source));
+    try!(consume_token(tokens, offset, &TokenType::CloseParenthesis));
     // Eval the inner expressions
     try!(do_expressions(compiler, tokens, offset, source));
     // Zap the local scope off the stack when it ends
@@ -241,15 +241,16 @@ fn compile_defn(compiler: &mut Compiler,
                 source: &SourceCode)
                 -> Result<(), String> {
     let start_token = &tokens[*offset];
+    // Name
     try!(advance(tokens, offset));
     let name_token = &tokens[*offset];
     if name_token.token_type != TokenType::Symbol {
         return Err(format!("Function name needs to be a symbol, got {}", name_token.token_type))
     }
     let fn_name = name_token.get_token(source);
-
-    // TODO parameters
-
+    // Parameters
+    consume_token(tokens, offset, &TokenType::OpenParenthesis);
+    // Body
     // TODO reuse this code between this and compile()
     let inner_chunk = Chunk{
         code: vec![],
@@ -274,8 +275,7 @@ fn compile_defn(compiler: &mut Compiler,
         }
     }
     inner_compiler.chunk.write_code(OpCode::Return, 99);
-    // inner_compiler.chunk.disassemble();
-
+    // Write function
     let idx = compiler.chunk.write_constant(Value::Function(fn_name, inner_compiler.chunk));
     compiler.chunk.write_code(OpCode::Constant(idx), start_token.line);
     Ok(())
@@ -343,7 +343,7 @@ fn compile_sexp(compiler: &mut Compiler,
         }
         _ => try!(compile_post_op(compiler, tokens, offset, source)),
     }
-    try!(consume_token(tokens, offset, &TokenType::CloseParenthesis, source));
+    try!(consume_token(tokens, offset, &TokenType::CloseParenthesis));
     compiler.sexp_depth -= 1;
     Ok(())
 }
@@ -423,8 +423,7 @@ fn expression(compiler: &mut Compiler,
     Ok(())
 }
 
-fn consume_token(tokens: &Vec<Token>, offset: &mut usize,
-                 expected_type: &TokenType, _source: &SourceCode)
+fn consume_token(tokens: &Vec<Token>, offset: &mut usize, expected_type: &TokenType)
                  -> Result<(), String> {
     let token = &tokens[*offset];
     if token.token_type == *expected_type {

@@ -304,8 +304,8 @@ fn compile_fn_call(compiler: &mut Compiler,
                    -> Result<(), String> {
     let token = &tokens[*offset];
     let fn_name = token.get_token(source);
-    let mut builtin = true;
-    let ops = match fn_name.as_str() {
+    let mut custom = false;
+    let mut ops = match fn_name.as_str() {
         "+" => vec![OpCode::Add],
         "-" => vec![OpCode::Subtract],
         "*" => vec![OpCode::Multiply],
@@ -318,19 +318,24 @@ fn compile_fn_call(compiler: &mut Compiler,
         "<=" => vec![OpCode::GreaterThan, OpCode::Not],
         "print" => vec![OpCode::Print],
         _ => {
-            builtin = false;
-            vec![OpCode::Call]
+            custom = true;
+            // Gets filled in later
+            vec![]
         }
     };
-    if !builtin {
-        // Non-builtin functions get pushed to the stack first.
+    if custom {
+        // Custom functions get pushed to the stack first.
         try!(expression(compiler, tokens, offset, source));
     } else {
         try!(advance(tokens, offset));
     }
+    let mut argc = 0;
     while tokens[*offset].token_type != TokenType::CloseParenthesis {
-        // TODO count number of expressions and pop this many as arguments
+        argc += 1;
         try!(expression(compiler, tokens, offset, source));
+    }
+    if custom {
+        ops = vec![OpCode::Call(argc)];
     }
     for op in ops {
         compiler.chunk.write_code(op, token.line);

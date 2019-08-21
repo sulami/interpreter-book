@@ -158,7 +158,7 @@ pub enum OpCode {
     GetLocal(usize),
     Jump(usize),
     JumpIfFalse(usize),
-    Call,
+    Call(usize),
     Negate,
     Add,
     Subtract,
@@ -235,14 +235,14 @@ impl Chunk {
             print!("{:04x} {:>5} ", index, &self.lines[index]);
         };
         match instruction {
-            OpCode::Constant(ptr) => println!("CONSTANT \t[{:04}] =>\t{:?}", ptr, self.read_constant(*ptr)),
+            OpCode::Constant(ptr) => println!("CONSTANT\t[{:04}] =>\t{:?}", ptr, self.read_constant(*ptr)),
             OpCode::DefineGlobal(ptr) => println!("DEF GLOBAL\t[{:04}] =>\t{:?}", ptr, self.read_constant(*ptr)),
             OpCode::GetGlobal(ptr) => println!("GET GLOBAL\t[{:04}] =>\t{:?}", ptr, self.read_constant(*ptr)),
             OpCode::DefineLocal(ptr) => println!("DEF LOCAL\t[{:04x}]", ptr),
             OpCode::GetLocal(ptr) => println!("GET LOCAL\t[{:04x}]", ptr),
             OpCode::Jump(ptr) => println!("JMP\t\t[{:04x}]", ptr),
             OpCode::JumpIfFalse(ptr) => println!("JMP IF F\t[{:04x}]", ptr),
-            OpCode::Call => println!("CALL"),
+            OpCode::Call(argc) => println!("CALL\t\t[{:4}]", argc),
             OpCode::Negate => println!("NEGATE"),
             OpCode::Add => println!("ADD"),
             OpCode::Subtract => println!("SUBTRACT"),
@@ -316,6 +316,14 @@ impl VM {
         }
     }
 
+    fn pick(&mut self, offset: usize) -> Result<&Value, String> {
+        if self.stack.len() <= offset {
+            Err(String::from("Pick out of bounds"))
+        } else {
+            Ok(&self.stack[self.stack.len() - offset - 1])
+        }
+    }
+
     pub fn interpret<'a>(&mut self, chunk: Chunk, debug: bool) -> Result<(), String> {
         self.stack = vec![];
         loop {
@@ -357,8 +365,8 @@ impl VM {
                         self.current_frame_mut().ip = *ptr;
                     }
                 }
-                OpCode::Call => {
-                    let f = try!(self.pop());
+                OpCode::Call(argc) => {
+                    let f = try!(self.pick(*argc));
                     match f {
                         Value::Function(_, _) => {}
                         _ => break Err(format!("{} is not callable", f))

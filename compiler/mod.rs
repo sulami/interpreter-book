@@ -249,9 +249,7 @@ fn compile_defn(compiler: &mut Compiler,
     }
     let fn_name = name_token.get_token(source);
     // Parameters
-    consume_token(tokens, offset, &TokenType::OpenParenthesis);
-    // Body
-    // TODO reuse this code between this and compile()
+    let mut argc = 0;
     let inner_chunk = Chunk{
         code: vec![],
         constants: vec![],
@@ -263,6 +261,23 @@ fn compile_defn(compiler: &mut Compiler,
         scope_depth: 0,
         sexp_depth: 0
     };
+    try!(advance(tokens, offset));
+    try!(consume_token(tokens, offset, &TokenType::OpenParenthesis));
+    while &tokens[*offset].token_type != &TokenType::CloseParenthesis {
+        argc += 1;
+        let binding_token = &tokens[*offset];
+        if binding_token.token_type != TokenType::Symbol {
+            return Err(format!("Function binding must be a symbol, got {}", binding_token.token_type));
+        }
+        inner_compiler.locals.append(&mut vec![LocalVar{
+            name: binding_token.get_token(source).to_string(),
+            depth: inner_compiler.scope_depth,
+        }]);
+        try!(advance(tokens, offset));
+    }
+    try!(consume_token(tokens, offset, &TokenType::CloseParenthesis));
+    // Body
+    // TODO reuse this code between this and compile()
     while &tokens[*offset].token_type != &TokenType::CloseParenthesis {
         let token = &tokens[*offset];
         if token.is_error() {
@@ -278,6 +293,7 @@ fn compile_defn(compiler: &mut Compiler,
     // Write function
     let idx = compiler.chunk.write_constant(Value::Function(fn_name, inner_compiler.chunk));
     compiler.chunk.write_code(OpCode::Constant(idx), start_token.line);
+    compiler.chunk.write_code(OpCode::DefineGlobal(idx), start_token.line);
     Ok(())
 }
 
@@ -286,6 +302,7 @@ fn compile_post_op(compiler: &mut Compiler,
                    offset: &mut usize,
                    source: &SourceCode)
                    -> Result<(), String> {
+    let start = *offset;
     let token = &tokens[*offset];
     let fn_name = token.get_token(source);
     try!(advance(tokens, offset));
@@ -293,6 +310,7 @@ fn compile_post_op(compiler: &mut Compiler,
         // TODO count number of expressions and pop this many as arguments
         try!(expression(compiler, tokens, offset, source));
     }
+    let end = *offset;
     match fn_name.as_str() {
         "+" => compiler.chunk.write_code(OpCode::Add, token.line),
         "-" => compiler.chunk.write_code(OpCode::Subtract, token.line),
@@ -311,7 +329,13 @@ fn compile_post_op(compiler: &mut Compiler,
             compiler.chunk.write_code(OpCode::Not, token.line);
         }
         "print" => compiler.chunk.write_code(OpCode::Print, token.line),
-        _ => return Err(format!("Unsupported function: {}", fn_name)),
+        _ => {
+            // We have to move the pointer back to the first element, eval it,
+            // then move back to the end of the whole call.
+            *offset = start;
+            try!(expression(compiler, tokens, offset, source));
+            *offset = end;
+        }
     }
     Ok(())
 }

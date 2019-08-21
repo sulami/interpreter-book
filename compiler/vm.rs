@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-#[derive(Clone,PartialEq)]
+#[derive(Clone)]
 pub enum Value {
     Nil,
     Bool(bool),
@@ -8,7 +8,7 @@ pub enum Value {
     Float(f64),
     String(String),
     Symbol(String),
-    Function(String),
+    Function(String, Chunk),
 }
 
 impl Value {
@@ -88,7 +88,17 @@ impl Value {
     }
 
     fn equal(&self, other: &Value) -> Value {
-        Value::Bool(*self == *other)
+        let b = match (self, other) {
+            (Value::Nil, Value::Nil) => true,
+            (Value::Bool(x), Value::Bool(y)) => x == y,
+            (Value::Int(x), Value::Int(y)) => x == y,
+            (Value::Float(x), Value::Float(y)) => x == y,
+            (Value::String(x), Value::String(y)) => x == y,
+            (Value::Symbol(x), Value::Symbol(y)) => x == y,
+            (Value::Function(x, _), Value::Function(y, _)) => x == y,
+            _ => false,
+        };
+        Value::Bool(b)
     }
 
     fn greater_than(&self, other: &Value) -> Result<Value, String> {
@@ -121,7 +131,7 @@ impl std::fmt::Display for Value {
             Value::Float(x) => write!(f, "{:?}", x),
             Value::String(s) => write!(f, "{}", s),
             Value::Symbol(s) => write!(f, "{}", s),
-            Value::Function(s) => write!(f, "{}", s),
+            Value::Function(s, _) => write!(f, "{}", s),
         }
     }
 }
@@ -130,7 +140,7 @@ impl std::fmt::Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         match self {
             Value::String(s) => write!(f, "\"{}\"", s),
-            Value::Function(s) => write!(f, "fn<{}>", s),
+            Value::Function(s, _) => write!(f, "fn<{}>", s),
             _ => write!(f, "{}", self),
         }
     }
@@ -139,7 +149,7 @@ impl std::fmt::Debug for Value {
 type ValueArray = Vec<Value>;
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum OpCode {
     Constant(usize),
     DefineGlobal(usize),
@@ -166,6 +176,7 @@ pub enum OpCode {
 
 pub type Line = u32;
 
+#[derive(Clone)]
 pub struct Chunk {
     pub code: Vec<OpCode>,
     pub lines: Vec<Line>,
@@ -188,7 +199,7 @@ impl Chunk {
             Value::Float(n) => Value::Float(*n),
             Value::String(s) => Value::String(String::from(s)),
             Value::Symbol(s) => Value::Symbol(String::from(s)),
-            Value::Function(s) => Value::Function(String::from(s)),
+            Value::Function(s, c) => Value::Function(String::from(s), c.clone()),
         }
     }
 

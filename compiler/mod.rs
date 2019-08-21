@@ -235,6 +235,52 @@ fn compile_while(compiler: &mut Compiler,
     Ok(())
 }
 
+fn compile_defn(compiler: &mut Compiler,
+                tokens: &Vec<Token>,
+                offset: &mut usize,
+                source: &SourceCode)
+                -> Result<(), String> {
+    let start_token = &tokens[*offset];
+    try!(advance(tokens, offset));
+    let name_token = &tokens[*offset];
+    if name_token.token_type != TokenType::Symbol {
+        return Err(format!("Function name needs to be a symbol, got {}", name_token.token_type))
+    }
+    let fn_name = name_token.get_token(source);
+
+    // TODO parameters
+
+    // TODO reuse this code between this and compile()
+    let inner_chunk = Chunk{
+        code: vec![],
+        constants: vec![],
+        lines: vec![],
+    };
+    let mut inner_compiler = Compiler{
+        chunk: inner_chunk,
+        locals: vec![],
+        scope_depth: 0,
+        sexp_depth: 0
+    };
+    while &tokens[*offset].token_type != &TokenType::CloseParenthesis {
+        let token = &tokens[*offset];
+        if token.is_error() {
+            return Err(format!("Lexing error: {}", token.token_type));
+        } else {
+            let exp = expression(&mut inner_compiler, &tokens, offset, &source);
+            if exp.is_err() {
+                return Err(exp.err().unwrap());
+            }
+        }
+    }
+    inner_compiler.chunk.write_code(OpCode::Return, 99);
+    // inner_compiler.chunk.disassemble();
+
+    let idx = compiler.chunk.write_constant(Value::Function(fn_name, inner_compiler.chunk));
+    compiler.chunk.write_code(OpCode::Constant(idx), start_token.line);
+    Ok(())
+}
+
 fn compile_post_op(compiler: &mut Compiler,
                    tokens: &Vec<Token>,
                    offset: &mut usize,
@@ -290,6 +336,7 @@ fn compile_sexp(compiler: &mut Compiler,
         "and" => try!(compile_and(compiler, tokens, offset, source)),
         "or" => try!(compile_or(compiler, tokens, offset, source)),
         "while" => try!(compile_while(compiler, tokens, offset, source)),
+        "defn" => try!(compile_defn(compiler, tokens, offset, source)),
         "do" => {
             try!(advance(tokens, offset));
             try!(do_expressions(compiler, tokens, offset, source));
@@ -368,7 +415,7 @@ fn expression(compiler: &mut Compiler,
         TokenType::EOF => {
             try!(advance(tokens, offset));
         }
-        _ => panic!("Token type not implemented"),
+        _ => panic!("Token type not implemented: {}", token.token_type),
     };
     if compiler.sexp_depth == 0 {
         compiler.chunk.write_code(OpCode::Wipe, token.line);
@@ -388,7 +435,7 @@ fn consume_token(tokens: &Vec<Token>, offset: &mut usize,
     }
 }
 
-fn compile(source: String, debug: bool) -> Result<Chunk, String> {
+fn compile(source: &SourceCode, debug: bool) -> Result<Chunk, String> {
     let chunk = Chunk{
         code: vec![],
         constants: vec![],
@@ -400,8 +447,7 @@ fn compile(source: String, debug: bool) -> Result<Chunk, String> {
         scope_depth: 0,
         sexp_depth: 0
     };
-    let source_chars: SourceCode = source.chars().collect();
-    let tokens = scanner::scan(&source_chars, debug);
+    let tokens = scanner::scan(&source, debug);
     let mut offset = 0;
     let token_count = tokens.len();
     while offset < token_count - 1 {
@@ -409,7 +455,7 @@ fn compile(source: String, debug: bool) -> Result<Chunk, String> {
         if token.is_error() {
             return Err(format!("Lexing error: {}", token.token_type));
         } else {
-            let exp = expression(&mut compiler, &tokens, &mut offset, &source_chars);
+            let exp = expression(&mut compiler, &tokens, &mut offset, &source);
             if exp.is_err() {
                 return Err(exp.err().unwrap());
             }
@@ -420,6 +466,7 @@ fn compile(source: String, debug: bool) -> Result<Chunk, String> {
 }
 
 pub fn interpret<'a>(vm: &mut VM, source: String, debug: bool) -> Result<(), String> {
-    let chunk = try!(compile(source, debug));
+    let source_chars: SourceCode = source.chars().collect();
+    let chunk = try!(compile(&source_chars, debug));
     vm.interpret(chunk, debug)
 }

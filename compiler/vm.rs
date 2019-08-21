@@ -8,7 +8,7 @@ pub enum Value {
     Float(f64),
     String(String),
     Symbol(String),
-    Function(String, Chunk),
+    Function(String, usize, Chunk),
 }
 
 impl Value {
@@ -95,7 +95,7 @@ impl Value {
             (Value::Float(x), Value::Float(y)) => x == y,
             (Value::String(x), Value::String(y)) => x == y,
             (Value::Symbol(x), Value::Symbol(y)) => x == y,
-            (Value::Function(x, _), Value::Function(y, _)) => x == y,
+            (Value::Function(x, _, _), Value::Function(y, _, _)) => x == y,
             _ => false,
         };
         Value::Bool(b)
@@ -131,7 +131,7 @@ impl std::fmt::Display for Value {
             Value::Float(x) => write!(f, "{:?}", x),
             Value::String(s) => write!(f, "{}", s),
             Value::Symbol(s) => write!(f, "{}", s),
-            Value::Function(s, _) => write!(f, "{}", s),
+            Value::Function(s, _, _) => write!(f, "{}", s),
         }
     }
 }
@@ -140,7 +140,7 @@ impl std::fmt::Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         match self {
             Value::String(s) => write!(f, "\"{}\"", s),
-            Value::Function(s, _) => write!(f, "fn<{}>", s),
+            Value::Function(s, arity, _) => write!(f, "fn<{}:{}>", s, arity),
             _ => write!(f, "{}", self),
         }
     }
@@ -200,7 +200,7 @@ impl Chunk {
             Value::Float(n) => Value::Float(*n),
             Value::String(s) => Value::String(String::from(s)),
             Value::Symbol(s) => Value::Symbol(String::from(s)),
-            Value::Function(s, c) => Value::Function(String::from(s), c.clone()),
+            Value::Function(s, a, c) => Value::Function(String::from(s), a.clone(), c.clone()),
         }
     }
 
@@ -368,7 +368,11 @@ impl VM {
                 OpCode::Call(argc) => {
                     let f = try!(self.pick(*argc));
                     match f {
-                        Value::Function(_, _) => {}
+                        Value::Function(n, a, _) => {
+                            if a != argc {
+                                break Err(format!{"Arity mismatch: {} expects {}, got {}", n, a, argc})
+                            }
+                        }
                         _ => break Err(format!("{} is not callable", f))
                     }
                     // TODO jump to bytecode for f

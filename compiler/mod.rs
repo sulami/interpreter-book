@@ -291,7 +291,7 @@ fn compile_defn(compiler: &mut Compiler,
     }
     inner_compiler.chunk.write_code(OpCode::Return, 99);
     // Write function
-    let idx = compiler.chunk.write_constant(Value::Function(fn_name, inner_compiler.chunk));
+    let idx = compiler.chunk.write_constant(Value::Function(fn_name, argc, inner_compiler.chunk));
     compiler.chunk.write_code(OpCode::Constant(idx), start_token.line);
     compiler.chunk.write_code(OpCode::DefineGlobal(idx), start_token.line);
     Ok(())

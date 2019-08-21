@@ -297,45 +297,43 @@ fn compile_defn(compiler: &mut Compiler,
     Ok(())
 }
 
-fn compile_post_op(compiler: &mut Compiler,
+fn compile_fn_call(compiler: &mut Compiler,
                    tokens: &Vec<Token>,
                    offset: &mut usize,
                    source: &SourceCode)
                    -> Result<(), String> {
-    let start = *offset;
     let token = &tokens[*offset];
     let fn_name = token.get_token(source);
-    try!(advance(tokens, offset));
+    let mut builtin = true;
+    let ops = match fn_name.as_str() {
+        "+" => vec![OpCode::Add],
+        "-" => vec![OpCode::Subtract],
+        "*" => vec![OpCode::Multiply],
+        "/" => vec![OpCode::Divide],
+        "not" => vec![OpCode::Not],
+        "=" => vec![OpCode::Equal],
+        ">" => vec![OpCode::GreaterThan],
+        ">=" => vec![OpCode::LessThan, OpCode::Not],
+        "<" => vec![OpCode::LessThan],
+        "<=" => vec![OpCode::GreaterThan, OpCode::Not],
+        "print" => vec![OpCode::Print],
+        _ => {
+            builtin = false;
+            vec![OpCode::Call]
+        }
+    };
+    if !builtin {
+        // Non-builtin functions get pushed to the stack first.
+        try!(expression(compiler, tokens, offset, source));
+    } else {
+        try!(advance(tokens, offset));
+    }
     while tokens[*offset].token_type != TokenType::CloseParenthesis {
         // TODO count number of expressions and pop this many as arguments
         try!(expression(compiler, tokens, offset, source));
     }
-    let end = *offset;
-    match fn_name.as_str() {
-        "+" => compiler.chunk.write_code(OpCode::Add, token.line),
-        "-" => compiler.chunk.write_code(OpCode::Subtract, token.line),
-        "*" => compiler.chunk.write_code(OpCode::Multiply, token.line),
-        "/" => compiler.chunk.write_code(OpCode::Divide, token.line),
-        "not" => compiler.chunk.write_code(OpCode::Not, token.line),
-        "=" => compiler.chunk.write_code(OpCode::Equal, token.line),
-        ">" => compiler.chunk.write_code(OpCode::GreaterThan, token.line),
-        ">=" => {
-            compiler.chunk.write_code(OpCode::LessThan, token.line);
-            compiler.chunk.write_code(OpCode::Not, token.line);
-        }
-        "<" => compiler.chunk.write_code(OpCode::LessThan, token.line),
-        "<=" => {
-            compiler.chunk.write_code(OpCode::GreaterThan, token.line);
-            compiler.chunk.write_code(OpCode::Not, token.line);
-        }
-        "print" => compiler.chunk.write_code(OpCode::Print, token.line),
-        _ => {
-            // We have to move the pointer back to the first element, eval it,
-            // then move back to the end of the whole call.
-            *offset = start;
-            try!(expression(compiler, tokens, offset, source));
-            *offset = end;
-        }
+    for op in ops {
+        compiler.chunk.write_code(op, token.line);
     }
     Ok(())
 }
@@ -365,7 +363,7 @@ fn compile_sexp(compiler: &mut Compiler,
             try!(advance(tokens, offset));
             try!(do_expressions(compiler, tokens, offset, source));
         }
-        _ => try!(compile_post_op(compiler, tokens, offset, source)),
+        _ => try!(compile_fn_call(compiler, tokens, offset, source)),
     }
     try!(consume_token(tokens, offset, &TokenType::CloseParenthesis));
     compiler.sexp_depth -= 1;

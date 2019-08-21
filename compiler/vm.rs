@@ -158,6 +158,7 @@ pub enum OpCode {
     GetLocal(usize),
     Jump(usize),
     JumpIfFalse(usize),
+    Call,
     Negate,
     Add,
     Subtract,
@@ -241,6 +242,7 @@ impl Chunk {
             OpCode::GetLocal(ptr) => println!("GET LOCAL\t[{:04x}]", ptr),
             OpCode::Jump(ptr) => println!("JMP\t\t[{:04x}]", ptr),
             OpCode::JumpIfFalse(ptr) => println!("JMP IF F\t[{:04x}]", ptr),
+            OpCode::Call => println!("CALL"),
             OpCode::Negate => println!("NEGATE"),
             OpCode::Add => println!("ADD"),
             OpCode::Subtract => println!("SUBTRACT"),
@@ -354,6 +356,14 @@ impl VM {
                     if !v.truthy() {
                         self.current_frame_mut().ip = *ptr;
                     }
+                }
+                OpCode::Call => {
+                    let f = try!(self.pop());
+                    match f {
+                        Value::Function(_, _) => {}
+                        _ => break Err(format!("{} is not callable", f))
+                    }
+                    // TODO jump to bytecode for f
                 }
                 OpCode::Negate => {
                     let v = try!(self.pop());

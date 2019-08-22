@@ -159,6 +159,7 @@ pub enum OpCode {
     Jump(usize),
     JumpIfFalse(usize),
     Call(usize),
+    Return,
     Negate,
     Add,
     Subtract,
@@ -171,8 +172,6 @@ pub enum OpCode {
     Print,
     Pop,
     Zap(usize),
-    Wipe,
-    Return,
 }
 
 pub type Line = u32;
@@ -243,6 +242,7 @@ impl Chunk {
             OpCode::Jump(ptr) => println!("JMP\t\t[{:04x}]", ptr),
             OpCode::JumpIfFalse(ptr) => println!("JMP IF F\t[{:04x}]", ptr),
             OpCode::Call(argc) => println!("CALL\t\t[{:4}]", argc),
+            OpCode::Return => println!("RETURN"),
             OpCode::Negate => println!("NEGATE"),
             OpCode::Add => println!("ADD"),
             OpCode::Subtract => println!("SUBTRACT"),
@@ -255,8 +255,6 @@ impl Chunk {
             OpCode::Print => println!("PRINT"),
             OpCode::Pop => println!("POP"),
             OpCode::Zap(ptr) => println!("ZAP\t\t[{:04}]", ptr),
-            OpCode::Wipe => println!("WIPE"),
-            OpCode::Return => println!("RETURN"),
         }
     }
 }
@@ -268,6 +266,7 @@ impl std::fmt::Debug for Chunk {
     }
 }
 
+#[derive(Debug)]
 pub struct CallFrame {
     fn_name: String,
     ip: usize,
@@ -287,9 +286,9 @@ fn runtime_error(msg: &str) -> Result<(), String> {
 impl VM {
     fn print_state(&self) {
         println!("== vm state ==");
-        println!("ip: {:04x}", self.current_frame().ip);
         println!("stack: {:?}", self.stack);
         println!("globals: {:?}", self.globals);
+        println!("call_stack: {:?}", self.call_stack);
     }
 
     fn current_frame(&self) -> &CallFrame {
@@ -316,7 +315,7 @@ impl VM {
         }
     }
 
-    fn pick(&mut self, offset: usize) -> Result<&Value, String> {
+    fn pick(&self, offset: usize) -> Result<&Value, String> {
         if self.stack.len() <= offset {
             Err(String::from("Pick out of bounds"))
         } else {
@@ -324,18 +323,15 @@ impl VM {
         }
     }
 
-    pub fn interpret<'a>(&mut self, chunk: Chunk, debug: bool) -> Result<(), String> {
-        self.stack = vec![];
+    pub fn interpret<'a>(&mut self, start_chunk: Chunk, debug: bool) -> Result<(), String> {
+        self.stack = vec![Value::Function(String::from("main"), 0, start_chunk.clone())];
+        let mut chunk_stack = vec![start_chunk];
         loop {
+            let chunk = chunk_stack.last().unwrap();
             if debug {
                 chunk.disassemble_instruction(self.current_frame().ip);
             }
-            if chunk.code.len() - 1 <= self.current_frame().ip {
-                if debug {
-                    self.print_state();
-                }
-                break Ok(())
-            }
+            let done = chunk_stack.len() == 1 && chunk.code.len() - 1 <= self.current_frame().ip;
             match &chunk.code[self.current_frame().ip] {
                 OpCode::Constant(ptr) => {
                     self.stack.push(chunk.read_constant(*ptr));
@@ -357,7 +353,11 @@ impl VM {
                     let name = chunk.read_constant(*ptr);
                     self.stack.push(Value::Symbol(name.to_string()));
                 }
-                OpCode::GetLocal(idx) => self.stack.push(self.stack[*idx].clone()),
+                OpCode::GetLocal(idx) => {
+                    // + 1 to jump over the function in slot 0
+                    let total_idx = self.current_frame().stack_start + *idx + 1;
+                    self.stack.push(self.stack[total_idx].clone());
+                }
                 OpCode::Jump(ptr) => self.current_frame_mut().ip = *ptr,
                 OpCode::JumpIfFalse(ptr) => {
                     let v = try!(self.peek());
@@ -366,16 +366,33 @@ impl VM {
                     }
                 }
                 OpCode::Call(argc) => {
-                    let f = try!(self.pick(*argc));
+                    let f = try!(self.pick(*argc)).clone();
                     match f {
-                        Value::Function(n, a, _) => {
-                            if a != argc {
+                        Value::Function(n, a, c) => {
+                            if a != *argc {
                                 break Err(format!{"Arity mismatch: {} expects {}, got {}", n, a, argc})
                             }
+                            self.call_stack.append(&mut vec![CallFrame{
+                                fn_name: n.to_string(),
+                                ip: 0,
+                                stack_start: self.stack.len() - *argc - 1,
+                            }]);
+                            chunk_stack.append(&mut vec![c]);
+                            continue // shortcut the ip++ at the end
                         }
                         _ => break Err(format!("{} is not callable", f))
                     }
-                    // TODO jump to bytecode for f
+                }
+                OpCode::Return => {
+                    let c = try!(self.pop());
+                    if 0 < self.stack.len() {
+                        for _ in self.current_frame().stack_start..self.stack.len() {
+                            try!(self.pop());
+                        }
+                    }
+                    self.call_stack.pop();
+                    chunk_stack.pop();
+                    self.stack.push(c);
                 }
                 OpCode::Negate => {
                     let v = try!(self.pop());
@@ -441,12 +458,13 @@ impl VM {
                     }
                     self.stack.remove(*ptr);
                 }
-                OpCode::Wipe => self.stack.clear(),
-                OpCode::Return => {
-                    let c = try!(self.pop());
-                    println!("{}", c);
-                }
             };
+            if done {
+                if debug {
+                    self.print_state();
+                }
+                break Ok(())
+            }
             self.current_frame_mut().ip += 1;
         }
     }

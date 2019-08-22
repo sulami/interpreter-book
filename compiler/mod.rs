@@ -16,6 +16,7 @@ pub struct Compiler {
     locals: Vec<LocalVar>,
     scope_depth: usize,
     sexp_depth: usize,
+    is_main: bool,
 }
 
 fn advance(tokens: &Vec<Token>, offset: &mut usize) -> Result<(), String> {
@@ -259,7 +260,8 @@ fn compile_defn(compiler: &mut Compiler,
         chunk: inner_chunk,
         locals: vec![],
         scope_depth: 0,
-        sexp_depth: 0
+        sexp_depth: 0,
+        is_main: false,
     };
     try!(advance(tokens, offset));
     try!(consume_token(tokens, offset, &TokenType::OpenParenthesis));
@@ -444,8 +446,8 @@ fn expression(compiler: &mut Compiler,
         }
         _ => panic!("Token type not implemented: {}", token.token_type),
     };
-    if compiler.sexp_depth == 0 {
-        compiler.chunk.write_code(OpCode::Wipe, token.line);
+    if compiler.is_main && compiler.sexp_depth == 0 {
+        compiler.chunk.write_code(OpCode::Pop, token.line);
     }
     Ok(())
 }
@@ -471,7 +473,8 @@ fn compile(source: &SourceCode, debug: bool) -> Result<Chunk, String> {
         chunk: chunk,
         locals: vec![],
         scope_depth: 0,
-        sexp_depth: 0
+        sexp_depth: 0,
+        is_main: true,
     };
     let tokens = scanner::scan(&source, debug);
     let mut offset = 0;

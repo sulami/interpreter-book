@@ -8,7 +8,7 @@ pub enum Value {
     Float(f64),
     String(String),
     Symbol(String),
-    Function(String, usize, Chunk),
+    Function(String, usize, usize),
 }
 
 impl Value {
@@ -181,6 +181,7 @@ pub struct Chunk {
     pub code: Vec<OpCode>,
     pub lines: Vec<Line>,
     pub constants: ValueArray,
+    pub chunks: Vec<Chunk>,
 }
 
 impl Chunk {
@@ -271,12 +272,14 @@ pub struct CallFrame {
     fn_name: String,
     ip: usize,
     stack_start: usize,
+    chunk_idx: usize,
 }
 
 pub struct VM {
     stack: ValueArray,
     globals: HashMap<String, Value>,
     call_stack: Vec<CallFrame>,
+    chunks: Vec<Chunk>,
 }
 
 fn runtime_error(msg: &str) -> Result<(), String> {
@@ -324,60 +327,70 @@ impl VM {
     }
 
     pub fn interpret<'a>(&mut self, start_chunk: Chunk, debug: bool) -> Result<(), String> {
-        self.stack = vec![Value::Function(String::from("main"), 0, start_chunk.clone())];
-        let mut chunk_stack = vec![start_chunk];
+        let mut all_chunks = start_chunk.chunks.clone();
+        self.chunks.append(&mut vec![start_chunk]);
+        self.chunks.append(&mut all_chunks);
+        self.stack = vec![Value::Function(String::from("main"), 0, 0)];
         loop {
-            let chunk = chunk_stack.last().unwrap();
+            let mut curr_chunk = &self.chunks[self.call_stack.last().unwrap().chunk_idx];
+            let chunk = &mut curr_chunk;
+            let current_frame = self.call_stack.last().unwrap();
             if debug {
                 chunk.disassemble_instruction(self.current_frame().ip);
             }
-            let done = chunk_stack.len() == 1 && chunk.code.len() - 1 <= self.current_frame().ip;
-            match &chunk.code[self.current_frame().ip] {
+            let done = self.call_stack.len() == 1 && chunk.code.len() - 1 <= current_frame.ip;
+            match chunk.code[current_frame.ip] {
                 OpCode::Constant(ptr) => {
-                    self.stack.push(chunk.read_constant(*ptr));
+                    self.stack.push(chunk.read_constant(ptr));
                 }
                 OpCode::DefineGlobal(ptr) => {
-                    let v = try!(self.pop());
-                    let name = chunk.read_constant(*ptr);
+                    let v = try!(
+                        if self.stack.is_empty() {
+                            Err(String::from("Empty stack"))
+                        } else {
+                            Ok(self.stack.pop().unwrap())
+                        }
+                    );
+                    let name = chunk.read_constant(ptr);
                     self.globals.insert(name.to_string(), v);
                     self.stack.push(Value::Symbol(name.to_string()));
                 }
                 OpCode::GetGlobal(ptr) => {
-                    let name = chunk.read_constant(*ptr);
+                    let name = chunk.read_constant(ptr);
                     match self.globals.get(&name.to_string()) {
                         Some(v) => self.stack.push(v.clone()),
                         None => break runtime_error(format!("Symbol {} not found", name).as_str()),
                     }
                 }
                 OpCode::DefineLocal(ptr) => {
-                    let name = chunk.read_constant(*ptr);
+                    let name = chunk.read_constant(ptr);
                     self.stack.push(Value::Symbol(name.to_string()));
                 }
                 OpCode::GetLocal(idx) => {
                     // + 1 to jump over the function in slot 0
-                    let total_idx = self.current_frame().stack_start + *idx + 1;
+                    let total_idx = self.current_frame().stack_start + idx + 1;
                     self.stack.push(self.stack[total_idx].clone());
                 }
-                OpCode::Jump(ptr) => self.current_frame_mut().ip = *ptr,
+                OpCode::Jump(ptr) => self.current_frame_mut().ip = ptr,
                 OpCode::JumpIfFalse(ptr) => {
                     let v = try!(self.peek());
                     if !v.truthy() {
-                        self.current_frame_mut().ip = *ptr;
+                        self.current_frame_mut().ip = ptr;
                     }
                 }
                 OpCode::Call(argc) => {
-                    let f = try!(self.pick(*argc)).clone();
+                    let f = try!(self.pick(argc)).clone();
                     match f {
-                        Value::Function(n, a, c) => {
-                            if a != *argc {
+                        Value::Function(n, a, c_idx) => {
+                            if a != argc {
                                 break Err(format!{"Arity mismatch: {} expects {}, got {}", n, a, argc})
                             }
                             self.call_stack.append(&mut vec![CallFrame{
                                 fn_name: n.to_string(),
                                 ip: 0,
-                                stack_start: self.stack.len() - *argc - 1,
+                                stack_start: self.stack.len() - argc - 1,
+                                chunk_idx: c_idx,
                             }]);
-                            chunk_stack.append(&mut vec![c]);
                             continue // shortcut the ip++ at the end
                         }
                         _ => break Err(format!("{} is not callable", f))
@@ -391,7 +404,6 @@ impl VM {
                         }
                     }
                     self.call_stack.pop();
-                    chunk_stack.pop();
                     self.stack.push(c);
                 }
                 OpCode::Negate => {
@@ -453,10 +465,10 @@ impl VM {
                     try!(self.pop());
                 }
                 OpCode::Zap(ptr) => {
-                    if self.stack.len() <= *ptr {
+                    if self.stack.len() <= ptr {
                         return runtime_error("Zap out of bounds")
                     }
-                    self.stack.remove(*ptr);
+                    self.stack.remove(ptr);
                 }
             };
             if done {
@@ -475,10 +487,12 @@ pub fn init_vm() -> VM {
         fn_name: String::from("main"),
         ip: 0,
         stack_start: 0,
+        chunk_idx: 0,
     };
     VM{
         stack: vec![],
         globals: HashMap::new(),
         call_stack: vec![top_frame],
+        chunks: vec![],
     }
 }

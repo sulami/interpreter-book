@@ -255,6 +255,7 @@ fn compile_defn(compiler: &mut Compiler,
         code: vec![],
         constants: vec![],
         lines: vec![],
+        chunks: vec![],
     };
     let mut inner_compiler = Compiler{
         chunk: inner_chunk,
@@ -293,9 +294,11 @@ fn compile_defn(compiler: &mut Compiler,
     }
     inner_compiler.chunk.write_code(OpCode::Return, 99);
     // Write function
-    let idx = compiler.chunk.write_constant(Value::Function(fn_name, argc, inner_compiler.chunk));
-    compiler.chunk.write_code(OpCode::Constant(idx), start_token.line);
-    compiler.chunk.write_code(OpCode::DefineGlobal(idx), start_token.line);
+    compiler.chunk.chunks.append(&mut vec![inner_compiler.chunk]);
+    let chunk_idx = compiler.chunk.chunks.len();
+    let fn_idx = compiler.chunk.write_constant(Value::Function(fn_name, argc, chunk_idx));
+    compiler.chunk.write_code(OpCode::Constant(fn_idx), start_token.line);
+    compiler.chunk.write_code(OpCode::DefineGlobal(fn_idx), start_token.line);
     Ok(())
 }
 
@@ -468,6 +471,7 @@ fn compile(source: &SourceCode, debug: bool) -> Result<Chunk, String> {
         code: vec![],
         constants: vec![],
         lines: vec![],
+        chunks: vec![],
     };
     let mut compiler = Compiler{
         chunk: chunk,
